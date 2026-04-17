@@ -4,7 +4,7 @@ from deep_translator import GoogleTranslator
 # --- 1. إعدادات الصفحة ---
 st.set_page_config(page_title="رادار أبو نايف المرواني", page_icon="🌍", layout="centered")
 
-# --- 2. ستايل "يفتح النفس" - تصميم ملكي احترافي ---
+# --- 2. ستايل "يفتح النفس" - تصميم احترافي ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
@@ -32,18 +32,18 @@ st.markdown("""
     h3 { color: #000000 !important; font-weight: 800 !important; }
     p, label { color: #000000 !important; font-weight: 700 !important; }
 
-    /* الأزرار: التصميم الجديد (كلام أبيض واضح على خلفية زرقاء ملكية) */
+    /* الأزرار: تصميم واضح (كلام أبيض على خلفية زرقاء) */
     .stLinkButton a {
-        background: linear-gradient(90deg, #1E3A8A 0%, #3B82F6 100%) !important; /* تدرج أزرق فخم */
-        color: #FFFFFF !important; /* أبيض ناصع حتمي */
+        background: linear-gradient(90deg, #1E3A8A 0%, #3B82F6 100%) !important; 
+        color: #FFFFFF !important; /* أبيض ناصع */
         border: none !important;
         border-radius: 12px !important;
         padding: 20px 10px !important;
         margin-bottom: 15px !important;
         display: block !important;
         text-align: center !important;
-        font-size: 22px !important; /* خط كبير جداً */
-        font-weight: 900 !important; /* أقصى درجات الغلظة */
+        font-size: 22px !important; 
+        font-weight: 900 !important; 
         text-decoration: none !important;
         box-shadow: 0 4px 15px rgba(30, 58, 138, 0.3) !important;
     }
@@ -51,7 +51,7 @@ st.markdown("""
     .stLinkButton a:hover {
         transform: scale(1.02);
         box-shadow: 0 6px 20px rgba(30, 58, 138, 0.4) !important;
-        color: #FFD700 !important; /* يتحول الكلام لذهبي عند اللمس لجمالية أكثر */
+        color: #FFD700 !important; 
     }
 
     /* إخفاء القوائم غير الضرورية */
@@ -60,7 +60,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. قاعدة البيانات المحدثة (البحث الآلي) ---
+# --- 3. قاعدة البيانات (البحث الآلي) ---
 MARKET_LOGIC = {
     "الصين 🇨🇳": [
         ("علي بابا - البحث العالمي", "https://www.alibaba.com/trade/search?SearchText="),
@@ -92,10 +92,10 @@ LANGUAGES = {"الإنجليزية 🇺🇸": "en", "الصينية 🇨🇳": "
 
 # --- 4. الواجهة الأمامية ---
 st.markdown('<h1>🌍 رادار المشتريات العالمي</h1>', unsafe_allow_html=True)
-st.markdown('<p style="text-align:center; font-size:22px; color:#1E3A8A !important;">إعداد العقيد: أبو نايف المرواني</p>', unsafe_allow_html=True)
+st.markdown('<p style="text-align:center; font-size:22px; color:#1E3A8A !important;">إعداد: أبو نايف المرواني</p>', unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 
-# حقل البحث - منمق ومحدد العرض
+# حقل البحث
 item_ar = st.text_input("📦 ما هي البضاعة التي ترغب البحث عنها؟", placeholder="اكتب هنا بالعربي (مثلاً: رخام، أثاث...)")
 
 col1, col2 = st.columns(2)
@@ -109,7 +109,6 @@ st.markdown("<hr>", unsafe_allow_html=True)
 if item_ar:
     try:
         with st.spinner('⏳ جاري ترجمة طلبك وفتح الرادار...'):
-            # الترجمة
             translated_text = GoogleTranslator(source='auto', target=LANGUAGES[target_lang]).translate(item_ar)
             
             st.markdown(f"<div style='background-color:#E0F2FE; padding:15px; border-radius:10px; border-right:5px solid #0369A1;'>"
@@ -118,7 +117,6 @@ if item_ar:
             
             st.markdown("<br><h3>🚀 اضغط على السوق المطلوب للبحث الآلي:</h3>", unsafe_allow_html=True)
             
-            # عرض الأزرار الفخمة
             sites = MARKET_LOGIC.get(target_country, [])
             for name, url in sites:
                 full_url = f"{url}{translated_text}"
@@ -130,4 +128,4 @@ else:
     st.markdown("<p style='text-align:center; background-color:#F3F4F6; padding:20px; border-radius:15px; border:1px dashed #999;'>"
                 "💡 أدخل اسم البضاعة وسأقوم بالبحث المترجم تلقائياً في الأسواق العالمية.</p>", unsafe_allow_html=True)
 
-st.markdown("<br><br><p style='text-align:center; font-size:14px; font-weight:bold; color:#999 !important;'>نظام دعم اتخاذ القرار | شرطة منطقة المدينة | 2026</p>", unsafe_allow_html=True)
+st.markdown("<br><br><p style='text-align:center; font-size:14px; font-weight:bold; color:#999 !important;'>رادار المشتريات الشخصي | 2026</p>", unsafe_allow_html=True)
