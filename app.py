@@ -2,156 +2,132 @@ import streamlit as st
 from deep_translator import GoogleTranslator
 
 # --- 1. إعدادات الصفحة ---
-st.set_page_config(page_title="رادار المشتريات - أبو نايف", page_icon="🌍", layout="centered")
+st.set_page_config(page_title="رادار أبو نايف المرواني", page_icon="🌍", layout="centered")
 
-# --- 2. ستايل CSS المطور (تركيز على الوضوح واللون الأسود العريض والترتيب) ---
+# --- 2. ستايل "يفتح النفس" - تصميم ملكي احترافي ---
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
     
-    /* لون خلفية الصفحة (رمادي فاتح جداً) */
+    /* خلفية الصفحة: أبيض ثلجي مريح للعين */
     .stApp {
-        background-color: #F8F9FA;
+        background-color: #F0F2F6;
         direction: rtl;
         text-align: right;
         font-family: 'Cairo', sans-serif;
     }
 
-    /* جعل الحقول بعرض محدد ومجمعة في المنتصف (ليست طويلة جداً) */
+    /* حاوية المحتوى: مرتبة ومنمقة في المنتصف */
     .block-container {
-        max-width: 600px !important;
-        padding-top: 1.5rem !important;
-        margin: auto;
+        max-width: 650px !important;
+        padding: 2rem !important;
+        background-color: #ffffff;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        margin-top: 20px;
     }
 
-    /* تنسيق النصوص لتكون سوداء وعريضة جداً (Bold 800) */
-    h1, h2, h3, p, label, .stMarkdown, .stSubheader, .stAlert, .stButton {
-        color: #000000 !important;
-        font-weight: 800 !important;
-        font-family: 'Cairo', sans-serif !important;
-    }
+    /* العناوين: أسود ملكي غليظ */
+    h1 { color: #1E3A8A !important; font-weight: 900 !important; text-align: center; }
+    h3 { color: #000000 !important; font-weight: 800 !important; }
+    p, label { color: #000000 !important; font-weight: 700 !important; }
 
-    /* تنسيق تسميات الحقول (Labels) - سوداء وغليظة */
-    .stWidget label p {
-        font-size: 18px !important;
-        color: #000000 !important;
-        font-weight: 800 !important;
-    }
-
-    /* تنسيق أزرار الروابط لتكون بارزة جداً وعسكرية */
+    /* الأزرار: التصميم الجديد (كلام أبيض واضح على خلفية زرقاء ملكية) */
     .stLinkButton a {
-        background-color: #000000 !important; /* أسود كامل */
-        color: #ffffff !important; /* خط أبيض */
-        border: 2px solid #000000 !important;
+        background: linear-gradient(90deg, #1E3A8A 0%, #3B82F6 100%) !important; /* تدرج أزرق فخم */
+        color: #FFFFFF !important; /* أبيض ناصع حتمي */
+        border: none !important;
         border-radius: 12px !important;
-        padding: 18px !important;
-        margin-bottom: 12px !important;
+        padding: 20px 10px !important;
+        margin-bottom: 15px !important;
         display: block !important;
         text-align: center !important;
-        font-size: 20px !important;
-        font-weight: 800 !important;
+        font-size: 22px !important; /* خط كبير جداً */
+        font-weight: 900 !important; /* أقصى درجات الغلظة */
         text-decoration: none !important;
-        transition: all 0.2s ease;
+        box-shadow: 0 4px 15px rgba(30, 58, 138, 0.3) !important;
     }
+    
     .stLinkButton a:hover {
-        background-color: #333333 !important;
-        border-color: #333333 !important;
-        transform: translateY(-2px); /* حركة بسيطة عند التمرير */
+        transform: scale(1.02);
+        box-shadow: 0 6px 20px rgba(30, 58, 138, 0.4) !important;
+        color: #FFD700 !important; /* يتحول الكلام لذهبي عند اللمس لجمالية أكثر */
     }
 
-    /* إخفاء الشريط الجانبي */
+    /* إخفاء القوائم غير الضرورية */
     [data-testid="stSidebar"] { display: none; }
+    footer {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. قاعدة البيانات الشاملة (الدول والروابط المباشرة للبحث الآلي) ---
-# قمت بتحديث الروابط لتكون "روابط بحث مباشرة" تجبر الموقع على وضع الكلمة المترجمة في خانة البحث فوراً.
+# --- 3. قاعدة البيانات المحدثة (البحث الآلي) ---
 MARKET_LOGIC = {
-    "الصين 🇨🇳": {
-        "عام": [
-            ("Alibaba Search", "https://www.alibaba.com/trade/search?SearchText="),
-            ("AliExpress Direct", "https://www.aliexpress.com/wholesale?SearchText="),
-            ("1688 Search", "https://s.1688.com/selloffer/rpc_search.htm?keywords="),
-            ("Made-in-China Builder", "https://www.made-in-china.com/search_product?word=")
-        ]
-    },
-    "الهند 🇮🇳": {
-        "عام": [
-            ("IndiaMART Search", "https://dir.indiamart.com/search.mp?ss="),
-            ("TradeIndia Direct", "https://www.tradeindia.com/search.html?keyword="),
-            ("Exporters India", "https://www.exportersindia.com/search.php?srch_val=")
-        ]
-    },
-    "تركيا 🇹🇷": {
-        "عام": [
-            ("Trendyol Search", "https://www.trendyol.com/sr?q="),
-            ("Hepsiburada Direct", "https://www.hepsiburada.com/ara?q="),
-            ("TurkishExporter", "https://www.turkishexporter.net/en/search?q=")
-        ]
-    },
-    "الخليج العربي 🇸🇦": {
-        "عام": [
-            ("أمازون السعودية", "https://www.amazon.sa/s?k="),
-            ("نون (noon.com)", "https://www.noon.com/saudi-ar/search/?q="),
-            ("حراج (بحث)", "https://haraj.com.sa/search/")
-        ]
-    },
-    "المغرب 🇲🇦": {
-        "عام": [
-            ("جوميا المغرب", "https://www.jumia.ma/catalog/?q="),
-            ("Avito.ma", "https://www.avito.ma/fr/maroc/")
-        ]
-    }
+    "الصين 🇨🇳": [
+        ("علي بابا - البحث العالمي", "https://www.alibaba.com/trade/search?SearchText="),
+        ("علي إكسبريس - بحث مباشر", "https://www.aliexpress.com/wholesale?SearchText="),
+        ("موقع 1688 - سعر المصنع", "https://s.1688.com/selloffer/rpc_search.htm?keywords="),
+        ("صنع في الصين - بناء", "https://www.made-in-china.com/search_product?word=")
+    ],
+    "تركيا 🇹🇷": [
+        ("ترينديول - سوق تركيا الأول", "https://www.trendyol.com/sr?q="),
+        ("هبسي بوردا - بحث شامل", "https://www.hepsiburada.com/ara?q="),
+        ("المصدر التركي - تصدير", "https://www.turkishexporter.net/en/search?q=")
+    ],
+    "الخليج العربي 🇸🇦": [
+        ("أمازون السعودية", "https://www.amazon.sa/s?k="),
+        ("نون - السوق الخليجي", "https://www.noon.com/saudi-ar/search/?q="),
+        ("حراج - بحث فوري", "https://haraj.com.sa/search/")
+    ],
+    "الهند 🇮🇳": [
+        ("إنديا مارت - بالجملة", "https://dir.indiamart.com/search.mp?ss="),
+        ("تريد إنديا - تجاري", "https://www.tradeindia.com/search.html?keyword=")
+    ],
+    "المغرب 🇲🇦": [
+        ("جوميا المغرب", "https://www.jumia.ma/catalog/?q="),
+        ("أفيتو - سوق المغرب", "https://www.avito.ma/fr/maroc/")
+    ]
 }
 
-# لغات المصدر للترجمة
-LANGUAGES = {
-    "الإنجليزية 🇺🇸": "en",
-    "الصينية 🇨🇳": "zh-CN",
-    "التركية 🇹🇷": "tr",
-    "العربية 🇸🇦": "ar",
-    "الأوردو 🇵🇰": "ur"
-}
+LANGUAGES = {"الإنجليزية 🇺🇸": "en", "الصينية 🇨🇳": "zh-CN", "التركية 🇹🇷": "tr", "العربية 🇸🇦": "ar", "الفرنسية 🇫🇷": "fr"}
 
 # --- 4. الواجهة الأمامية ---
-st.markdown('<h1 style="text-align:center;">🌍 رادار المشتريات الشامل</h1>', unsafe_allow_html=True)
-st.markdown('<p style="text-align:center; font-size:22px;">إعداد المحلل: أبو نايف المرواني</p>', unsafe_allow_html=True)
+st.markdown('<h1>🌍 رادار المشتريات العالمي</h1>', unsafe_allow_html=True)
+st.markdown('<p style="text-align:center; font-size:22px; color:#1E3A8A !important;">إعداد العقيد: أبو نايف المرواني</p>', unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 
-# حقل الإدخال - مجمّع وقصير بفضل الستايل CSS
-item_ar = st.text_input("📦 ما هي البضاعة التي ترغب البحث عنها؟", placeholder="اكتب هنا بالعربي...")
+# حقل البحث - منمق ومحدد العرض
+item_ar = st.text_input("📦 ما هي البضاعة التي ترغب البحث عنها؟", placeholder="اكتب هنا بالعربي (مثلاً: رخام، أثاث...)")
 
-# الحقول في صفوف مرتبة، قصيرة ومجمعة
 col1, col2 = st.columns(2)
 with col1:
     target_country = st.selectbox("📍 اختر الدولة المستهدفة:", list(MARKET_LOGIC.keys()))
 with col2:
-    target_lang = st.selectbox("🌐 ترجم وابحث بلغة:", list(LANGUAGES.keys()))
+    target_lang = st.selectbox("🌐 لغة البحث المترجم:", list(LANGUAGES.keys()))
 
-st.markdown("<hr style='border:1px solid #000;'>", unsafe_allow_html=True)
+st.markdown("<hr>", unsafe_allow_html=True)
 
-# منطق التشغيل والبحث الآلي
 if item_ar:
     try:
-        with st.spinner('⏳ جاري ترجمة طلبك والبحث الآلي في المصادر...'):
-            # الترجمة الفورية باستخدام المترجم المستقر
+        with st.spinner('⏳ جاري ترجمة طلبك وفتح الرادار...'):
+            # الترجمة
             translated_text = GoogleTranslator(source='auto', target=LANGUAGES[target_lang]).translate(item_ar)
             
-            st.success(f"🔍 تم تجهيز البحث بكلمة: **{translated_text}**")
+            st.markdown(f"<div style='background-color:#E0F2FE; padding:15px; border-radius:10px; border-right:5px solid #0369A1;'>"
+                        f"<h3 style='margin:0;'>✅ تم تجهيز البحث بكلمة: <span style='color:#0369A1;'>{translated_text}</span></h3>"
+                        f"</div>", unsafe_allow_html=True)
             
-            country_data = MARKET_LOGIC.get(target_country, {})
-            top_sites = country_data.get("عام", [])
+            st.markdown("<br><h3>🚀 اضغط على السوق المطلوب للبحث الآلي:</h3>", unsafe_allow_html=True)
             
-            st.markdown("<h3>🚀 اضغط على الموقع لفتح النتائج فوراً:</h3>", unsafe_allow_html=True)
-            
-            for name, url in top_sites:
-                # دمج الرابط بالكلمة المترجمة للبحث الآلي والعميق
-                full_search_url = f"{url}{translated_text}"
-                st.link_button(f"🔎 ابحث في {name}", full_search_url)
+            # عرض الأزرار الفخمة
+            sites = MARKET_LOGIC.get(target_country, [])
+            for name, url in sites:
+                full_url = f"{url}{translated_text}"
+                st.link_button(f"🔎 استكشاف {name}", full_url)
                 
     except Exception as e:
-        st.error(f"عذراً، حدث خطأ فني: {e}. حاول مرة أخرى.")
+        st.error("حدث خطأ في الاتصال، يرجى المحاولة مرة أخرى.")
 else:
-    st.markdown("<p style='text-align:center; color:#4B5563; font-weight:800; font-size:18px;'>💡 أدخل الكلمة بالعربي وسأقوم بالبحث المترجم تلقائياً.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; background-color:#F3F4F6; padding:20px; border-radius:15px; border:1px dashed #999;'>"
+                "💡 أدخل اسم البضاعة وسأقوم بالبحث المترجم تلقائياً في الأسواق العالمية.</p>", unsafe_allow_html=True)
 
-st.markdown("<br><br><p style='text-align:center; font-size:12px; font-weight:400;'>نظام دعم اتخاذ القرار | شرطة منطقة المدينة | 2026</p>", unsafe_allow_html=True)
+st.markdown("<br><br><p style='text-align:center; font-size:14px; font-weight:bold; color:#999 !important;'>نظام دعم اتخاذ القرار | شرطة منطقة المدينة | 2026</p>", unsafe_allow_html=True)
