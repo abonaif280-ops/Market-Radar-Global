@@ -1,0 +1,15 @@
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          # التواريخ تُخزَّن نصًا بصيغة ISO-8601 لتسهيل الفرز والنقل بين الأجهزة.
+          store_date_time_values_as_text: true
+          # نستخدم Repositories صريحة بدل واجهة manager المولدة.
+          generate_manager: false
+          sql:
+            dialect: sqlite
+            options:
+              version: "3.45"
+              modules:
+                - fts5
