@@ -23,13 +23,26 @@ class CasesListScreen extends ConsumerStatefulWidget {
     this.title = 'الحالات السابقة',
     this.autofocusSearch = false,
     this.selectionMode = false,
+    this.baseQuery = const CaseQuery(),
+    this.selectionBarBuilder,
+    this.tapOpensDetails = false,
   });
 
   final String title;
   final bool autofocusSearch;
 
-  /// وضع التحديد المتعدد للتصدير.
+  /// وضع التحديد المتعدد (افتراضيًا للتصدير).
   final bool selectionMode;
+
+  /// فلاتر ثابتة لا يمسحها المستخدم (مثل حالات دفعة واردة معينة).
+  final CaseQuery baseQuery;
+
+  /// شريط إجراءات مخصص للمحدد؛ الافتراضي زر "تصدير المحدد".
+  final Widget Function(Set<String> selected, VoidCallback clearSelection)?
+  selectionBarBuilder;
+
+  /// في وضع التحديد: الضغط على البطاقة يفتح التفاصيل ومربع الاختيار يحدد.
+  final bool tapOpensDetails;
 
   @override
   ConsumerState<CasesListScreen> createState() => _CasesListScreenState();
@@ -40,7 +53,7 @@ class _CasesListScreenState extends ConsumerState<CasesListScreen> {
 
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
-  CaseQuery _query = const CaseQuery();
+  late CaseQuery _query = widget.baseQuery;
   List<CaseListItem> _items = const [];
   CaseCursor? _next;
   int? _count;
@@ -193,8 +206,17 @@ class _CasesListScreenState extends ConsumerState<CasesListScreen> {
 
   void _clearAll() {
     _searchController.clear();
-    _setQuery(const CaseQuery());
+    _setQuery(widget.baseQuery);
   }
+
+  bool get _isFiltered =>
+      _query.text.trim().isNotEmpty ||
+      _query.datePreset != DatePreset.any ||
+      _query.exportState != null ||
+      _query.caseTypeId != widget.baseQuery.caseTypeId ||
+      _query.governorateId != widget.baseQuery.governorateId ||
+      _query.reportSourceId != widget.baseQuery.reportSourceId ||
+      _query.pendingReviewOnly != widget.baseQuery.pendingReviewOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -217,11 +239,16 @@ class _CasesListScreenState extends ConsumerState<CasesListScreen> {
           ? SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: FilledButton.icon(
-                  onPressed: _selected.isEmpty ? null : _exportSelected,
-                  icon: const Icon(Icons.inventory_2),
-                  label: Text('تصدير المحدد (${_selected.length})'),
-                ),
+                child:
+                    widget.selectionBarBuilder?.call(
+                      Set.unmodifiable(_selected),
+                      () => setState(_selected.clear),
+                    ) ??
+                    FilledButton.icon(
+                      onPressed: _selected.isEmpty ? null : _exportSelected,
+                      icon: const Icon(Icons.inventory_2),
+                      label: Text('تصدير المحدد (${_selected.length})'),
+                    ),
               ),
             )
           : null,
@@ -259,7 +286,7 @@ class _CasesListScreenState extends ConsumerState<CasesListScreen> {
             onToggleExport: _toggleExport,
             onOpenFilters: _openFilters,
           ),
-          if (_count != null && !_query.isEmpty)
+          if (_count != null && _isFiltered)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
               child: Row(
@@ -285,7 +312,7 @@ class _CasesListScreenState extends ConsumerState<CasesListScreen> {
       return Center(child: Text('تعذر تحميل الحالات: $_error'));
     }
     if (_items.isEmpty) {
-      return _EmptyState(filtered: !_query.isEmpty, onClear: _clearAll);
+      return _EmptyState(filtered: _isFiltered, onClear: _clearAll);
     }
     return RefreshIndicator(
       onRefresh: _reload,
@@ -295,6 +322,7 @@ class _CasesListScreenState extends ConsumerState<CasesListScreen> {
         loadingMore: _loadingMore,
         selected: widget.selectionMode ? _selected : null,
         onToggle: _toggleSelected,
+        tapOpensDetails: widget.tapOpensDetails,
       ),
     );
   }
@@ -363,8 +391,10 @@ class _GroupedList extends StatelessWidget {
     required this.loadingMore,
     this.selected,
     this.onToggle,
+    this.tapOpensDetails = false,
   });
 
+  final bool tapOpensDetails;
   final List<CaseListItem> items;
   final ScrollController controller;
   final bool loadingMore;
@@ -428,6 +458,7 @@ class _GroupedList extends StatelessWidget {
             item: entry as CaseListItem,
             selected: selected?.contains(entry.id),
             onToggle: onToggle,
+            tapOpensDetails: tapOpensDetails,
           ),
         );
       },
@@ -436,7 +467,14 @@ class _GroupedList extends StatelessWidget {
 }
 
 class _CaseTile extends StatelessWidget {
-  const _CaseTile({required this.item, this.selected, this.onToggle});
+  const _CaseTile({
+    required this.item,
+    this.selected,
+    this.onToggle,
+    this.tapOpensDetails = false,
+  });
+
+  final bool tapOpensDetails;
 
   final CaseListItem item;
 
@@ -454,7 +492,7 @@ class _CaseTile extends StatelessWidget {
           ? Theme.of(context).colorScheme.secondaryContainer
           : null,
       child: InkWell(
-        onTap: selecting
+        onTap: selecting && !tapOpensDetails
             ? () => onToggle?.call(item.id)
             : () => AppRoutes.openCaseDetails(context, item.id),
         child: Padding(
@@ -503,7 +541,7 @@ class _CaseTile extends StatelessWidget {
                   ],
                 ),
               ),
-              if (!selecting) const Icon(Icons.chevron_left),
+              if (!selecting || tapOpensDetails) const Icon(Icons.chevron_left),
             ],
           ),
         ),

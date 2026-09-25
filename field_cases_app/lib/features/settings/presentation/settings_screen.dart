@@ -6,6 +6,7 @@ import '../../cases/domain/case_enums.dart';
 import '../../../core/db/seed_data.dart';
 import '../data/settings_repository.dart';
 import '../../templates/presentation/templates_screen.dart';
+import '../../supervisor/presentation/supervisor_mode_screen.dart';
 import 'lookup_list_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -73,6 +74,12 @@ class SettingsScreen extends ConsumerWidget {
                   leading: const Icon(Icons.admin_panel_settings_outlined),
                   title: const Text('الدور'),
                   subtitle: Text(role == UserRole.supervisor ? 'مشرف' : 'موظف'),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SupervisorModeScreen(),
+                    ),
+                  ),
                 ),
               ],
             ),

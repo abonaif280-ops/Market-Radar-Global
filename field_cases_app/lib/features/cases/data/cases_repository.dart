@@ -347,6 +347,17 @@ class CasesRepository {
     if (query.reportSourceId != null) {
       where = where & _db.cases.reportSourceId.equals(query.reportSourceId!);
     }
+    if (query.sourceBatchId != null) {
+      where = where & _db.cases.sourceBatchId.equals(query.sourceBatchId!);
+    }
+    if (query.pendingReviewOnly) {
+      where =
+          where &
+          _db.cases.reviewState.isInValues([
+            ReviewState.incoming,
+            ReviewState.underReview,
+          ]);
+    }
     final exported = _db.cases.lastExportedRevision;
     switch (query.exportState) {
       case ExportState.notExported:

@@ -123,6 +123,35 @@ class AttachmentStorage {
     );
   }
 
+  /// ينقل ملفًا مستخرجًا من حزمة مستوردة إلى مجلد الحالة، وينشئ مصغرته.
+  ///
+  /// يعيد (المسار النسبي، مسار المصغرة النسبي أو null).
+  Future<(String, String?)> adoptImported(
+    File source, {
+    required String caseId,
+    required String fileName,
+  }) async {
+    final caseDir = p.join('attachments', caseId);
+    final relativePath = p.join(caseDir, fileName);
+    await Directory(absolute(caseDir)).create(recursive: true);
+    await source.rename(absolute(relativePath));
+
+    final bytes = await File(absolute(relativePath)).readAsBytes();
+    final thumb = await Isolate.run(() => _makeThumbnail(bytes));
+    if (thumb == null) return (relativePath, null);
+    final thumbRelative = p.join(caseDir, 'thumbs', fileName);
+    await Directory(p.dirname(absolute(thumbRelative))).create(recursive: true);
+    await File(absolute(thumbRelative)).writeAsBytes(thumb.jpeg, flush: true);
+    return (relativePath, thumbRelative);
+  }
+
+  /// حذف ملفات بمساراتها النسبية (تراجع عن استيراد فشل).
+  Future<void> deleteRelative(Iterable<String> relativePaths) async {
+    for (final path in relativePaths) {
+      await _deleteQuietly(File(absolute(path)));
+    }
+  }
+
   /// يعيد الملفات لمنطقة الانتظار إذا فشل حفظ الحالة، حتى يمكن إعادة المحاولة.
   Future<void> rollback(Iterable<CommittedAttachment> committed) async {
     for (final c in committed) {

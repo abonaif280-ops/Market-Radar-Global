@@ -38,9 +38,35 @@ class CaseDetailsScreen extends ConsumerWidget {
     ).showSnackBar(const SnackBar(content: Text('أصبحت الحالة جاهزة للإرسال')));
   }
 
+  Future<void> _decide(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool approve,
+  }) async {
+    final inbox = ref.read(inboxRepositoryProvider);
+    await (approve ? inbox.approve([caseId]) : inbox.reject([caseId]));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(approve ? 'اعتُمدت الحالة' : 'رُفضت الحالة')),
+    );
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final details = ref.watch(caseDetailsProvider(caseId));
+    final isSupervisor =
+        ref.watch(userRoleProvider).value == UserRole.supervisor;
+    final awaitingReview =
+        details.value?.reviewState == ReviewState.incoming ||
+        details.value?.reviewState == ReviewState.underReview;
+
+    // فتح حالة واردة للمعاينة ينقلها إلى "تحت المراجعة".
+    ref.listen(caseDetailsProvider(caseId), (_, next) {
+      if (isSupervisor && next.value?.reviewState == ReviewState.incoming) {
+        ref.read(inboxRepositoryProvider).markUnderReview(caseId);
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -62,7 +88,32 @@ class CaseDetailsScreen extends ConsumerWidget {
             ? const Center(child: Text('الحالة غير موجودة أو محذوفة'))
             : _DetailsBody(details: c),
       ),
-      bottomNavigationBar: details.value == null || !details.value!.isEditable
+      bottomNavigationBar: isSupervisor && awaitingReview
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => _decide(context, ref, approve: false),
+                        child: const Text('رفض'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: FilledButton.icon(
+                        onPressed: () => _decide(context, ref, approve: true),
+                        icon: const Icon(Icons.verified),
+                        label: const Text('اعتماد الحالة'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : details.value == null || !details.value!.isEditable
           ? null
           : SafeArea(
               child: Padding(

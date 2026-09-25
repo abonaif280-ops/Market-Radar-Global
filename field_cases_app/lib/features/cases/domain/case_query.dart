@@ -32,6 +32,8 @@ class CaseQuery {
     this.caseTypeId,
     this.governorateId,
     this.reportSourceId,
+    this.sourceBatchId,
+    this.pendingReviewOnly = false,
   });
 
   final String text;
@@ -45,13 +47,21 @@ class CaseQuery {
   final String? governorateId;
   final String? reportSourceId;
 
+  /// حالات دفعة مستوردة معينة (صندوق الوارد لدى المشرف).
+  final String? sourceBatchId;
+
+  /// الحالات الواردة التي لم تُعتمد أو تُرفض بعد.
+  final bool pendingReviewOnly;
+
   bool get isEmpty =>
       text.trim().isEmpty &&
       datePreset == DatePreset.any &&
       exportState == null &&
       caseTypeId == null &&
       governorateId == null &&
-      reportSourceId == null;
+      reportSourceId == null &&
+      sourceBatchId == null &&
+      !pendingReviewOnly;
 
   /// عدد الفلاتر المتقدمة المفعلة (تظهر على زر "الفلاتر").
   int get advancedFilterCount => [
@@ -95,6 +105,8 @@ class CaseQuery {
     Object? caseTypeId = _unset,
     Object? governorateId = _unset,
     Object? reportSourceId = _unset,
+    Object? sourceBatchId = _unset,
+    bool? pendingReviewOnly,
   }) {
     return CaseQuery(
       text: text ?? this.text,
@@ -117,6 +129,10 @@ class CaseQuery {
       reportSourceId: identical(reportSourceId, _unset)
           ? this.reportSourceId
           : reportSourceId as String?,
+      sourceBatchId: identical(sourceBatchId, _unset)
+          ? this.sourceBatchId
+          : sourceBatchId as String?,
+      pendingReviewOnly: pendingReviewOnly ?? this.pendingReviewOnly,
     );
   }
 }

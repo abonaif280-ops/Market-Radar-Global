@@ -24,11 +24,16 @@ Future<void> main() async {
   );
   if (await exportDir.exists()) await exportDir.delete(recursive: true);
 
+  final importDir = Directory(
+    '${(await getApplicationSupportDirectory()).path}/imports',
+  );
+
   final container = ProviderContainer(
     overrides: [
       appDatabaseProvider.overrideWithValue(database),
       attachmentStorageProvider.overrideWithValue(storage),
       exportDirectoryProvider.overrideWithValue(exportDir),
+      importDirectoryProvider.overrideWithValue(importDir),
     ],
   );
   // يضمن توليد المعرف المنطقي للجهاز عند أول تشغيل.

@@ -4,7 +4,8 @@ import '../features/cases/presentation/case_details_screen.dart';
 import '../features/cases/presentation/case_form/case_form_screen.dart';
 import '../features/cases/presentation/cases_list_screen.dart';
 import '../features/export/presentation/export_screen.dart';
-import '../shared/widgets/phase_placeholder_screen.dart';
+import '../features/import/presentation/import_screen.dart';
+import '../features/supervisor/presentation/inbox_screen.dart';
 
 /// نقاط الدخول لشاشات الميزات. تُستبدل الشاشات المؤقتة تباعًا مع كل مرحلة.
 abstract final class AppRoutes {
@@ -27,23 +28,11 @@ abstract final class AppRoutes {
   static Future<void> openExport(BuildContext context) =>
       _push(context, const ExportScreen());
 
-  static Future<void> openImport(BuildContext context) => _push(
-    context,
-    const PhasePlaceholderScreen(
-      title: 'استيراد بيانات',
-      icon: Icons.download_outlined,
-      phase: 11,
-    ),
-  );
+  static Future<void> openImport(BuildContext context) =>
+      _push(context, const ImportScreen());
 
-  static Future<void> openInbox(BuildContext context) => _push(
-    context,
-    const PhasePlaceholderScreen(
-      title: 'الدفعات الواردة',
-      icon: Icons.inbox_outlined,
-      phase: 11,
-    ),
-  );
+  static Future<void> openInbox(BuildContext context) =>
+      _push(context, const InboxScreen());
 
   static Future<void> _push(BuildContext context, Widget screen) {
     return Navigator.of(context)
