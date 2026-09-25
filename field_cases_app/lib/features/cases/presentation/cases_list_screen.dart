@@ -26,9 +26,13 @@ class CasesListScreen extends ConsumerStatefulWidget {
     this.baseQuery = const CaseQuery(),
     this.selectionBarBuilder,
     this.tapOpensDetails = false,
+    this.header,
   });
 
   final String title;
+
+  /// محتوى إضافي أعلى القائمة (مثل تنبيه القرارات المعلقة في دفعة).
+  final Widget? header;
   final bool autofocusSearch;
 
   /// وضع التحديد المتعدد (افتراضيًا للتصدير).
@@ -254,6 +258,7 @@ class _CasesListScreenState extends ConsumerState<CasesListScreen> {
           : null,
       body: Column(
         children: [
+          ?widget.header,
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: TextField(

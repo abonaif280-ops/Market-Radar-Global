@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/providers.dart';
 import '../../cases/domain/case_query.dart';
 import '../../cases/presentation/cases_list_screen.dart';
+import '../../import/presentation/pending_versions_screen.dart';
 
 /// حالات دفعة واردة: تحديد، معاينة (بالضغط على الحالة)، اعتماد أو رفض.
 class BatchReviewScreen extends ConsumerWidget {
@@ -76,6 +77,27 @@ class BatchReviewScreen extends ConsumerWidget {
       selectionMode: true,
       tapOpensDetails: true,
       baseQuery: CaseQuery(sourceBatchId: batchId),
+      header: (batch?.pendingDecisionCount ?? 0) == 0
+          ? null
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Card(
+                color: Theme.of(context).colorScheme.tertiaryContainer,
+                child: ListTile(
+                  leading: const Icon(Icons.difference),
+                  title: Text(
+                    '${batch!.pendingDecisionCount} حالة لها نسخة أحدث',
+                  ),
+                  subtitle: const Text('قارن واختر: الاحتفاظ أو الاستبدال'),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => PendingVersionsScreen(batchId: batchId),
+                    ),
+                  ),
+                ),
+              ),
+            ),
       selectionBarBuilder: (selected, clear) => Row(
         children: [
           Expanded(

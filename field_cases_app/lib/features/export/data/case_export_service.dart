@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
@@ -12,6 +11,7 @@ import '../../../core/files/attachment_storage.dart';
 import '../../cases/domain/case_enums.dart';
 import '../../cases/domain/case_query.dart';
 import '../../packages/data/case_package_writer.dart';
+import '../../packages/data/case_snapshot_builder.dart';
 import '../../packages/domain/package_models.dart';
 import '../../settings/data/settings_repository.dart';
 
@@ -110,6 +110,10 @@ class CaseExportService {
   final SettingsRepository _settings;
   final AuditLogger _audit;
   final CasePackageWriter _writer;
+  late final CaseSnapshotBuilder _snapshots = CaseSnapshotBuilder(
+    _db,
+    storage: _storage,
+  );
 
   /// مجلد مؤقت خاص بالتطبيق؛ الملف يُشارك منه ثم يُحذف عند التشغيل التالي.
   final Directory outputDirectory;
@@ -158,7 +162,7 @@ class CaseExportService {
     final cases = <PackagedCase>[];
     final files = <String, String>{};
     for (final id in ids) {
-      final (packaged, caseFiles) = await _packageCase(id);
+      final (packaged, caseFiles) = await _snapshots.build(id);
       cases.add(packaged);
       files.addAll(caseFiles);
     }
@@ -257,115 +261,6 @@ class CaseExportService {
           ..orderBy([OrderingTerm.asc(c.occurredAt)]))
         .map((r) => r.read(c.id)!)
         .get();
-  }
-
-  Future<(PackagedCase, Map<String, String>)> _packageCase(String id) async {
-    final row = await (_db.select(
-      _db.cases,
-    )..where((c) => c.id.equals(id))).getSingle();
-
-    final lookupIds = {
-      row.caseTypeId,
-      ?row.governorateId,
-      ?row.centerId,
-      ?row.reportSourceId,
-    };
-    final lookups = {
-      for (final l in await (_db.select(
-        _db.lookupItems,
-      )..where((l) => l.id.isIn(lookupIds))).get())
-        l.id: l,
-    };
-    PackagedLookup? lookup(String? lookupId) {
-      final item = lookupId == null ? null : lookups[lookupId];
-      return item == null
-          ? null
-          : PackagedLookup(code: item.code, label: item.label);
-    }
-
-    final parties =
-        await (_db.select(_db.caseParties).join([
-                innerJoin(
-                  _db.lookupItems,
-                  _db.lookupItems.id.equalsExp(_db.caseParties.partyId),
-                ),
-              ])
-              ..where(_db.caseParties.caseId.equals(id))
-              ..orderBy([OrderingTerm.asc(_db.lookupItems.sortOrder)]))
-            .map((r) => r.readTable(_db.lookupItems))
-            .get();
-
-    final attachmentRows =
-        await (_db.select(_db.attachments)
-              ..where((a) => a.caseId.equals(id) & a.deletedAt.isNull())
-              ..orderBy([(a) => OrderingTerm.asc(a.seq)]))
-            .get();
-    final files = <String, String>{};
-    final attachments = [
-      for (final a in attachmentRows)
-        PackagedAttachment(
-          attachmentUuid: a.id,
-          seq: a.seq,
-          kind: a.kind.name,
-          fileName: a.fileName,
-          path: '${PackageFormat.attachmentsDir}/$id/${a.fileName}',
-          mimeType: a.mimeType,
-          size: a.sizeBytes,
-          sha256: a.sha256,
-          width: a.width,
-          height: a.height,
-        ),
-    ];
-    for (var i = 0; i < attachmentRows.length; i++) {
-      files[attachments[i].path] = _storage.absolute(
-        attachmentRows[i].relativePath,
-      );
-    }
-
-    final packaged = PackagedCase(
-      caseUuid: row.id,
-      displayCode: row.displayCode,
-      serialNo: row.serialNo,
-      revision: row.revision,
-      contentHash: row.contentHash ?? '',
-      status: row.status.name,
-      caseType:
-          lookup(row.caseTypeId) ??
-          PackagedLookup(code: row.caseTypeId, label: row.caseTypeId),
-      occurredAt: row.occurredAt,
-      governorate: lookup(row.governorateId),
-      center: lookup(row.centerId),
-      locationText: row.locationText,
-      reportSource: lookup(row.reportSourceId),
-      locationDescription: row.locationDescription,
-      latitude: row.latitude,
-      longitude: row.longitude,
-      caseInfo: row.caseInfo,
-      actionTaken: row.actionTaken,
-      parties: [
-        for (final party in parties)
-          PackagedLookup(code: party.code, label: party.label),
-      ],
-      hasInjuries: row.hasInjuries,
-      injuriesCount: row.injuriesCount,
-      hasDeaths: row.hasDeaths,
-      deathsCount: row.deathsCount,
-      hasDamage: row.hasDamage,
-      damageDescription: row.damageDescription,
-      extraFields: Map<String, Object?>.from(
-        jsonDecode(row.extraFieldsJson) as Map,
-      ),
-      notes: row.notes,
-      finalText: row.finalText,
-      isTextEdited: row.isTextEdited,
-      enteredBy: row.enteredBy,
-      orgCode: row.orgCode,
-      originDeviceId: row.originDeviceId,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      attachments: attachments,
-    );
-    return (packaged, files);
   }
 
   /// يعلّم كل حالة بالمراجعة التي صُدّرت فعلًا؛ إن عُدّلت أثناء التصدير

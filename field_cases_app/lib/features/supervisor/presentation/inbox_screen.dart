@@ -40,7 +40,7 @@ class _BatchCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final done = batch.pendingCount == 0;
+    final done = batch.pendingCount == 0 && batch.pendingDecisionCount == 0;
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -99,6 +99,14 @@ class _BatchCard extends StatelessWidget {
                     Text(
                       'مكتملة',
                       style: TextStyle(color: scheme.onSurfaceVariant),
+                    ),
+                  if (batch.pendingDecisionCount > 0)
+                    Text(
+                      '${batch.pendingDecisionCount} نسخة أحدث',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: scheme.tertiary,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   if (batch.approvedCount > 0)
                     Text(

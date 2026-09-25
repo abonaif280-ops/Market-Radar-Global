@@ -18,6 +18,7 @@ import '../features/cases/domain/case_type_field.dart';
 import '../features/cases/domain/case_views.dart';
 import '../features/export/data/case_export_service.dart';
 import '../features/import/data/import_service.dart';
+import '../features/import/data/version_resolution_service.dart';
 import '../features/settings/data/lookup_repository.dart';
 import '../features/supervisor/data/inbox_repository.dart';
 import '../features/supervisor/data/role_service.dart';
@@ -90,6 +91,29 @@ final importServiceProvider = Provider<ImportService>(
     workDirectory: ref.watch(importDirectoryProvider),
   ),
 );
+
+final versionResolutionProvider = Provider<VersionResolutionService>(
+  (ref) => VersionResolutionService(
+    ref.watch(appDatabaseProvider),
+    storage: ref.watch(attachmentStorageProvider),
+    settings: ref.watch(settingsRepositoryProvider),
+    audit: ref.watch(auditLoggerProvider),
+    workDirectory: ref.watch(importDirectoryProvider),
+  ),
+);
+
+/// النسخ الواردة التي تنتظر القرار؛ null = كل الدفعات.
+final pendingVersionsProvider =
+    StreamProvider.family<List<PendingVersion>, String?>(
+      (ref, batchId) =>
+          ref.watch(versionResolutionProvider).watchPending(batchId: batchId),
+    );
+
+final caseVersionsProvider =
+    StreamProvider.family<List<CaseVersionEntry>, String>(
+      (ref, caseId) =>
+          ref.watch(versionResolutionProvider).watchVersions(caseId),
+    );
 
 final inboxRepositoryProvider = Provider<InboxRepository>(
   (ref) => InboxRepository(

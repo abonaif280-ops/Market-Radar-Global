@@ -18,6 +18,7 @@ class InboxBatch {
     required this.pendingCount,
     required this.approvedCount,
     required this.rejectedCount,
+    this.pendingDecisionCount = 0,
   });
 
   final String id;
@@ -32,6 +33,9 @@ class InboxBatch {
   final int pendingCount;
   final int approvedCount;
   final int rejectedCount;
+
+  /// حالات لها نسخة أحدث تنتظر قرار المشرف (استبدال/احتفاظ).
+  final int pendingDecisionCount;
 
   String get title => orgName ?? enteredBy ?? 'جهة غير محددة';
 }
@@ -87,9 +91,22 @@ class InboxRepository {
     final rejected = countWhere(
       c.reviewState.equalsValue(ReviewState.rejected),
     );
+    final items = _db.importBatchItems;
+    final decisions = subqueryExpression<int>(
+      _db.selectOnly(items)
+        ..addColumns([items.caseId.count()])
+        ..where(
+          items.batchId.equalsExp(b.id) &
+              items.decision.equalsValue(ImportDecision.pending),
+        ),
+    );
 
-    final query = _db.select(b).addColumns([pending, approved, rejected])
-      ..orderBy([OrderingTerm.desc(b.importedAt)]);
+    final query = _db.select(b).addColumns([
+      pending,
+      approved,
+      rejected,
+      decisions,
+    ])..orderBy([OrderingTerm.desc(b.importedAt)]);
     return query.watch().map(
       (rows) => [
         for (final row in rows)
@@ -106,6 +123,7 @@ class InboxRepository {
               pendingCount: row.read(pending) ?? 0,
               approvedCount: row.read(approved) ?? 0,
               rejectedCount: row.read(rejected) ?? 0,
+              pendingDecisionCount: row.read(decisions) ?? 0,
             );
           }(),
       ],

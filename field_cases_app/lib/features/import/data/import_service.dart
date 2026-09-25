@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
@@ -7,7 +6,6 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/db/app_database.dart';
 import '../../../core/db/audit_logger.dart';
-import '../../../core/db/seed_data.dart';
 import '../../../core/files/attachment_storage.dart';
 import '../../cases/data/case_search_index.dart';
 import '../../cases/domain/case_enums.dart';
@@ -15,6 +13,7 @@ import '../../packages/data/case_package_reader.dart';
 import '../../packages/domain/package_models.dart';
 import '../../settings/data/settings_repository.dart';
 import '../domain/duplicate_detector.dart';
+import 'imported_case_writer.dart';
 
 /// حالة واردة مع تصنيفها والقرار المبدئي بشأنها.
 class ImportItem {
@@ -240,8 +239,9 @@ class ImportService {
             );
 
         final searchIndex = CaseSearchIndex(_db);
+        final writer = ImportedCaseWriter(_db);
         for (final item in toImport) {
-          await _insertCase(
+          await writer.insertCase(
             item.packagedCase,
             batchId: manifest.packageId,
             attachmentPaths: attachmentPaths,
@@ -307,136 +307,5 @@ class ImportService {
   /// إلغاء الاستيراد بعد الفحص: حذف نسخة الحزمة.
   Future<void> discard(ImportReport report) async {
     if (await report.packageFile.exists()) await report.packageFile.delete();
-  }
-
-  // ------------------------------------------------------------ داخلي
-
-  Future<void> _insertCase(
-    PackagedCase c, {
-    required String batchId,
-    required Map<String, (String, String?)> attachmentPaths,
-    required DateTime now,
-  }) async {
-    final caseTypeId = await _lookupFor(LookupKeys.caseType, c.caseType);
-    final governorateId = await _lookupFor(
-      LookupKeys.governorate,
-      c.governorate,
-    );
-    final centerId = await _lookupFor(LookupKeys.center, c.center);
-    final sourceId = await _lookupFor(LookupKeys.reportSource, c.reportSource);
-
-    await _db
-        .into(_db.cases)
-        .insert(
-          CasesCompanion.insert(
-            id: c.caseUuid,
-            displayCode: c.displayCode,
-            serialNo: c.serialNo,
-            caseTypeId: caseTypeId!,
-            occurredAt: c.occurredAt.toUtc(),
-            governorateId: Value(governorateId),
-            centerId: Value(centerId),
-            locationText: Value(c.locationText),
-            reportSourceId: Value(sourceId),
-            locationDescription: Value(c.locationDescription),
-            latitude: Value(c.latitude),
-            longitude: Value(c.longitude),
-            caseInfo: Value(c.caseInfo),
-            actionTaken: Value(c.actionTaken),
-            hasInjuries: Value(c.hasInjuries),
-            injuriesCount: Value(c.injuriesCount),
-            hasDeaths: Value(c.hasDeaths),
-            deathsCount: Value(c.deathsCount),
-            hasDamage: Value(c.hasDamage),
-            damageDescription: Value(c.damageDescription),
-            notes: Value(c.notes),
-            extraFieldsJson: Value(jsonEncode(c.extraFields)),
-            finalText: Value(c.finalText),
-            isTextEdited: Value(c.isTextEdited),
-            enteredBy: Value(c.enteredBy),
-            orgCode: Value(c.orgCode),
-            originDeviceId: c.originDeviceId,
-            revision: Value(c.revision),
-            contentHash: Value(c.contentHash),
-            status: CaseStatus.values.firstWhere(
-              (s) => s.name == c.status,
-              orElse: () => CaseStatus.completed,
-            ),
-            reviewState: const Value(ReviewState.incoming),
-            sourceBatchId: Value(batchId),
-            createdAt: c.createdAt.toUtc(),
-            updatedAt: c.updatedAt.toUtc(),
-          ),
-        );
-
-    for (final party in c.parties) {
-      final partyId = await _lookupFor(LookupKeys.party, party);
-      await _db
-          .into(_db.caseParties)
-          .insert(
-            CasePartiesCompanion.insert(caseId: c.caseUuid, partyId: partyId!),
-            mode: InsertMode.insertOrIgnore,
-          );
-    }
-
-    for (final a in c.attachments) {
-      final (relative, thumb) = attachmentPaths[a.attachmentUuid]!;
-      await _db
-          .into(_db.attachments)
-          .insert(
-            AttachmentsCompanion.insert(
-              id: a.attachmentUuid,
-              caseId: c.caseUuid,
-              seq: a.seq,
-              kind: AttachmentKind.values.firstWhere(
-                (k) => k.name == a.kind,
-                orElse: () => AttachmentKind.file,
-              ),
-              fileName: a.fileName,
-              relativePath: relative,
-              thumbRelativePath: Value(thumb),
-              mimeType: a.mimeType,
-              sizeBytes: a.size,
-              sha256: a.sha256,
-              width: Value(a.width),
-              height: Value(a.height),
-              createdAt: now,
-            ),
-          );
-    }
-  }
-
-  /// يربط عنصر القائمة الوارد بالمحلي بالرمز؛ وإن لم يوجد يُضاف باسمه
-  /// (قوائم الأجهزة قد تختلف) حتى لا تضيع المعلومة.
-  Future<String?> _lookupFor(String listKey, PackagedLookup? item) async {
-    if (item == null) return null;
-    final existing =
-        await (_db.select(_db.lookupItems)..where(
-              (l) => l.listKey.equals(listKey) & l.code.equals(item.code),
-            ))
-            .getSingleOrNull();
-    if (existing != null) return existing.id;
-
-    final id = lookupId(listKey, item.code);
-    final maxOrder = _db.lookupItems.sortOrder.max();
-    final order =
-        await (_db.selectOnly(_db.lookupItems)
-              ..addColumns([maxOrder])
-              ..where(_db.lookupItems.listKey.equals(listKey)))
-            .map((r) => r.read(maxOrder))
-            .getSingle();
-    await _db
-        .into(_db.lookupItems)
-        .insert(
-          LookupItemsCompanion.insert(
-            id: id,
-            listKey: listKey,
-            code: item.code,
-            label: item.label,
-            sortOrder: Value((order ?? -1) + 1),
-          ),
-          mode: InsertMode.insertOrIgnore,
-        );
-    return id;
   }
 }

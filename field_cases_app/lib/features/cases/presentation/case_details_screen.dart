@@ -9,6 +9,7 @@ import '../domain/case_views.dart';
 import 'case_form/case_form_screen.dart';
 import '../../export/data/case_export_service.dart';
 import '../../export/presentation/export_flow.dart';
+import '../../import/presentation/version_history_screen.dart';
 import 'widgets/case_share_actions.dart';
 import 'widgets/coordinates_actions.dart';
 import 'widgets/photo_grid.dart';
@@ -211,6 +212,7 @@ class _DetailsBody extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
         _CaseTextCard(details: c),
+        _VersionHistoryLink(caseId: c.id),
         const SizedBox(height: 12),
         _InfoCard(
           rows: [
@@ -398,6 +400,34 @@ class _CaseTextCard extends ConsumerWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// رابط "سجل الإصدارات" يظهر فقط إذا كانت للحالة نسخ محفوظة (بعد قرار المشرف).
+class _VersionHistoryLink extends ConsumerWidget {
+  const _VersionHistoryLink({required this.caseId});
+
+  final String caseId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(caseVersionsProvider(caseId)).value?.length ?? 0;
+    if (count == 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Card(
+        child: ListTile(
+          leading: const Icon(Icons.history_edu),
+          title: Text('سجل الإصدارات ($count)'),
+          trailing: const Icon(Icons.chevron_left),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => VersionHistoryScreen(caseId: caseId),
+            ),
+          ),
         ),
       ),
     );
