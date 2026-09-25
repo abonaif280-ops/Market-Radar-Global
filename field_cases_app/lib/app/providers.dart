@@ -97,10 +97,6 @@ final todayCasesCountProvider = StreamProvider<int>(
   (ref) => ref.watch(casesRepositoryProvider).watchTodayCount(),
 );
 
-final recentCasesProvider = StreamProvider<List<CaseListItem>>(
-  (ref) => ref.watch(casesRepositoryProvider).watchRecent(),
-);
-
 final caseDetailsProvider = StreamProvider.family<CaseDetails?, String>(
   (ref, id) => ref.watch(casesRepositoryProvider).watchDetails(id),
 );

@@ -13,6 +13,7 @@ import 'package:field_cases/features/templates/data/case_text_composer.dart';
 import 'package:field_cases/features/cases/data/cases_repository.dart';
 import 'package:field_cases/features/cases/domain/case_enums.dart';
 import 'package:field_cases/features/cases/domain/case_form_data.dart';
+import 'package:field_cases/features/cases/domain/case_query.dart';
 import 'package:field_cases/features/cases/domain/case_type_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,6 +35,19 @@ class _FakeCasesRepository implements CasesRepository {
 
   @override
   Stream<int> watchTodayCount() => Stream.value(0);
+
+  @override
+  Future<CasePage> searchCases(
+    CaseQuery query, {
+    CaseCursor? after,
+    int limit = 30,
+  }) async => const CasePage([], null);
+
+  @override
+  Future<int> countCases(CaseQuery query) async => 0;
+
+  @override
+  Stream<void> watchChanges() => const Stream.empty();
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -150,7 +164,6 @@ void main() {
           ),
           orgNameProvider.overrideWith((ref) => Stream.value('شرطة بدر')),
           todayCasesCountProvider.overrideWith((ref) => Stream.value(0)),
-          recentCasesProvider.overrideWith((ref) => Stream.value(const [])),
           caseDetailsProvider.overrideWith((ref, id) => Stream.value(null)),
           activeLookupProvider.overrideWith(
             (ref, args) => Stream.value(lookups[args.listKey]!),

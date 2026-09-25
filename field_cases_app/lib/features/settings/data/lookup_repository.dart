@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/db/app_database.dart';
+import '../../cases/data/case_search_index.dart';
 import '../../cases/domain/case_type_field.dart';
 
 /// الوصول إلى القوائم القابلة للتعديل (أنواع الحالات، المحافظات، ...).
@@ -108,9 +109,11 @@ class LookupRepository {
     );
   }
 
-  Future<void> rename(String id, String label) {
-    return (_db.update(_db.lookupItems)..where((l) => l.id.equals(id))).write(
+  /// إعادة التسمية تعيد بناء فهرس البحث لأن أسماء القوائم جزء منه.
+  Future<void> rename(String id, String label) async {
+    await (_db.update(_db.lookupItems)..where((l) => l.id.equals(id))).write(
       LookupItemsCompanion(label: Value(label.trim())),
     );
+    await CaseSearchIndex(_db).rebuildAll();
   }
 }

@@ -1,38 +1,313 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import '../../../app/routes.dart';
 import '../../../core/utils/arabic_format.dart';
+import '../domain/case_enums.dart';
+import '../domain/case_query.dart';
 import '../domain/case_views.dart';
+import 'case_filters_sheet.dart';
 import 'widgets/status_chip.dart';
 
-/// الحالات السابقة، الأحدث أولًا ومجمعة باليوم.
+/// الحالات السابقة مع البحث والتصفية، الأحدث أولًا ومجمعة باليوم.
 ///
-/// الفلاتر والتحميل التدريجي لآلاف الحالات تُضاف في المرحلة 6.
-class CasesListScreen extends ConsumerWidget {
-  const CasesListScreen({super.key});
+/// التحميل تدريجي (30 حالة لكل صفحة) ويتحدث تلقائيًا عند أي تغيير في الحالات.
+class CasesListScreen extends ConsumerStatefulWidget {
+  const CasesListScreen({
+    super.key,
+    this.title = 'الحالات السابقة',
+    this.autofocusSearch = false,
+  });
+
+  final String title;
+  final bool autofocusSearch;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cases = ref.watch(recentCasesProvider);
+  ConsumerState<CasesListScreen> createState() => _CasesListScreenState();
+}
 
+class _CasesListScreenState extends ConsumerState<CasesListScreen> {
+  static const int pageSize = 30;
+
+  final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
+  CaseQuery _query = const CaseQuery();
+  List<CaseListItem> _items = const [];
+  CaseCursor? _next;
+  int? _count;
+  bool _loading = true;
+  bool _loadingMore = false;
+  Object? _error;
+
+  /// يُهمل نتائج الطلبات القديمة إذا تغير البحث أثناء تنفيذها.
+  int _generation = 0;
+  Timer? _searchDebounce;
+  Timer? _changesDebounce;
+  StreamSubscription<void>? _changes;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _changes = ref.read(casesRepositoryProvider).watchChanges().listen((_) {
+      _changesDebounce?.cancel();
+      _changesDebounce = Timer(const Duration(milliseconds: 250), _reload);
+    });
+    _reload();
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _changesDebounce?.cancel();
+    _changes?.cancel();
+    _searchController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _reload() async {
+    final generation = ++_generation;
+    final repo = ref.read(casesRepositoryProvider);
+    setState(() {
+      _loading = _items.isEmpty;
+      _error = null;
+    });
+    try {
+      final results = await Future.wait([
+        repo.searchCases(_query, limit: pageSize),
+        repo.countCases(_query),
+      ]);
+      if (!mounted || generation != _generation) return;
+      final page = results[0] as CasePage;
+      setState(() {
+        _items = page.items;
+        _next = page.next;
+        _count = results[1] as int;
+        _loading = false;
+      });
+    } on Exception catch (e) {
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _error = e;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    final cursor = _next;
+    if (cursor == null || _loadingMore) return;
+    final generation = _generation;
+    setState(() => _loadingMore = true);
+    try {
+      final page = await ref
+          .read(casesRepositoryProvider)
+          .searchCases(_query, after: cursor, limit: pageSize);
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _items = [..._items, ...page.items];
+        _next = page.next;
+      });
+    } on Exception catch (e) {
+      if (mounted) setState(() => _error = e);
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  void _onScroll() {
+    final position = _scrollController.position;
+    if (position.pixels > position.maxScrollExtent - 600) _loadMore();
+  }
+
+  void _setQuery(CaseQuery query) {
+    setState(() {
+      _query = query;
+      _items = const [];
+      _next = null;
+      _count = null;
+    });
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+    _reload();
+  }
+
+  void _onSearchChanged(String text) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 300),
+      () => _setQuery(_query.copyWith(text: text)),
+    );
+  }
+
+  void _toggleDate(DatePreset preset) => _setQuery(
+    _query.copyWith(
+      datePreset: _query.datePreset == preset ? DatePreset.any : preset,
+      customFrom: null,
+      customTo: null,
+    ),
+  );
+
+  void _toggleExport(ExportState state) => _setQuery(
+    _query.copyWith(exportState: _query.exportState == state ? null : state),
+  );
+
+  Future<void> _openFilters() async {
+    final result = await CaseFiltersSheet.show(context, _query);
+    if (result != null) _setQuery(result);
+  }
+
+  void _clearAll() {
+    _searchController.clear();
+    _setQuery(const CaseQuery());
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('الحالات السابقة')),
-      body: cases.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('تعذر تحميل الحالات: $e')),
-        data: (items) =>
-            items.isEmpty ? const _EmptyState() : _GroupedList(items: items),
+      appBar: AppBar(title: Text(widget.title)),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: TextField(
+              controller: _searchController,
+              autofocus: widget.autofocusSearch,
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: 'ابحث برقم الحالة أو الموقع أو أي كلمة',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'مسح البحث',
+                        icon: const Icon(Icons.close),
+                        onPressed: () {
+                          _searchController.clear();
+                          _setQuery(_query.copyWith(text: ''));
+                        },
+                      ),
+              ),
+              onChanged: (text) {
+                setState(() {});
+                _onSearchChanged(text);
+              },
+            ),
+          ),
+          _FilterChipsRow(
+            query: _query,
+            onToggleDate: _toggleDate,
+            onToggleExport: _toggleExport,
+            onOpenFilters: _openFilters,
+          ),
+          if (_count != null && !_query.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+              child: Row(
+                children: [
+                  Text('$_count حالة مطابقة'),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: _clearAll,
+                    child: const Text('مسح الفلاتر'),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(child: _buildBody()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null && _items.isEmpty) {
+      return Center(child: Text('تعذر تحميل الحالات: $_error'));
+    }
+    if (_items.isEmpty) {
+      return _EmptyState(filtered: !_query.isEmpty, onClear: _clearAll);
+    }
+    return RefreshIndicator(
+      onRefresh: _reload,
+      child: _GroupedList(
+        items: _items,
+        controller: _scrollController,
+        loadingMore: _loadingMore,
+      ),
+    );
+  }
+}
+
+class _FilterChipsRow extends StatelessWidget {
+  const _FilterChipsRow({
+    required this.query,
+    required this.onToggleDate,
+    required this.onToggleExport,
+    required this.onOpenFilters,
+  });
+
+  final CaseQuery query;
+  final ValueChanged<DatePreset> onToggleDate;
+  final ValueChanged<ExportState> onToggleExport;
+  final VoidCallback onOpenFilters;
+
+  @override
+  Widget build(BuildContext context) {
+    final advanced = query.advancedFilterCount;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          ActionChip(
+            avatar: Icon(
+              advanced > 0 ? Icons.filter_alt : Icons.filter_alt_outlined,
+              size: 18,
+            ),
+            label: Text(advanced > 0 ? 'الفلاتر ($advanced)' : 'الفلاتر'),
+            visualDensity: VisualDensity.compact,
+            onPressed: onOpenFilters,
+          ),
+          for (final preset in [DatePreset.today, DatePreset.week])
+            FilterChip(
+              label: Text(preset.label),
+              selected: query.datePreset == preset,
+              visualDensity: VisualDensity.compact,
+              onSelected: (_) => onToggleDate(preset),
+            ),
+          for (final (state, label) in [
+            (ExportState.notExported, 'غير مصدرة'),
+            (ExportState.exported, 'مصدرة'),
+            (ExportState.modifiedAfterExport, 'معدلة بعد التصدير'),
+          ])
+            FilterChip(
+              label: Text(label),
+              selected: query.exportState == state,
+              visualDensity: VisualDensity.compact,
+              onSelected: (_) => onToggleExport(state),
+            ),
+        ],
       ),
     );
   }
 }
 
 class _GroupedList extends StatelessWidget {
-  const _GroupedList({required this.items});
+  const _GroupedList({
+    required this.items,
+    required this.controller,
+    required this.loadingMore,
+  });
 
   final List<CaseListItem> items;
+  final ScrollController controller;
+  final bool loadingMore;
 
   static String _dayLabel(DateTime day) {
     final now = DateTime.now();
@@ -59,9 +334,17 @@ class _GroupedList extends StatelessWidget {
     }
 
     return ListView.builder(
+      controller: controller,
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
-      itemCount: entries.length,
+      itemCount: entries.length + (loadingMore ? 1 : 0),
       itemBuilder: (context, index) {
+        if (index >= entries.length) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
         final entry = entries[index];
         if (entry is String) {
           return Padding(
@@ -75,10 +358,9 @@ class _GroupedList extends StatelessWidget {
             ),
           );
         }
-        final item = entry as CaseListItem;
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: _CaseTile(item: item),
+          child: _CaseTile(item: entry as CaseListItem),
         );
       },
     );
@@ -148,7 +430,10 @@ class _CaseTile extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({required this.filtered, required this.onClear});
+
+  final bool filtered;
+  final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
@@ -157,17 +442,27 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.folder_open, size: 72, color: scheme.outline),
+          Icon(
+            filtered ? Icons.search_off : Icons.folder_open,
+            size: 72,
+            color: scheme.outline,
+          ),
           const SizedBox(height: 12),
           Text(
-            'لا توجد حالات بعد',
+            filtered ? 'لا توجد حالات مطابقة' : 'لا توجد حالات بعد',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
-          Text(
-            'ابدأ بزر "حالة جديدة"',
-            style: TextStyle(color: scheme.onSurfaceVariant),
-          ),
+          if (filtered)
+            TextButton(
+              onPressed: onClear,
+              child: const Text('مسح البحث والفلاتر'),
+            )
+          else
+            Text(
+              'ابدأ بزر "حالة جديدة"',
+              style: TextStyle(color: scheme.onSurfaceVariant),
+            ),
         ],
       ),
     );

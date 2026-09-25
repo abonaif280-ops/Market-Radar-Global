@@ -10,6 +10,7 @@ import 'package:field_cases/core/ids/case_id_generator.dart';
 import 'package:field_cases/features/cases/data/cases_repository.dart';
 import 'package:field_cases/features/cases/domain/case_enums.dart';
 import 'package:field_cases/features/cases/domain/case_form_data.dart';
+import 'package:field_cases/features/cases/domain/case_query.dart';
 import 'package:field_cases/features/settings/data/settings_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
@@ -216,7 +217,7 @@ void main() {
       status: CaseStatus.draft,
     );
 
-    final items = await repo.watchRecent().first;
+    final items = (await repo.searchCases(const CaseQuery())).items;
     expect(items, hasLength(2));
     expect(items.first.placeLabel, 'طريق الهجرة');
     expect(items.first.displayStatus, DisplayStatus.draft);
@@ -260,7 +261,7 @@ void main() {
         isEmpty,
       );
 
-      final items = await repo.watchRecent().first;
+      final items = (await repo.searchCases(const CaseQuery())).items;
       expect(items.single.imageCount, 2);
       final details = (await repo.watchDetails(id).first)!;
       expect(details.attachments, hasLength(2));

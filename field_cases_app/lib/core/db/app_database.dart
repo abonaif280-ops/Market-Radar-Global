@@ -5,6 +5,7 @@ import 'package:drift_flutter/drift_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../features/cases/domain/case_enums.dart';
+import '../../features/cases/data/case_search_index.dart';
 import '../../features/templates/domain/default_templates.dart';
 import 'seed_data.dart';
 import 'tables.dart';
@@ -45,18 +46,25 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  /// الإصدار 2: لا تغيير في الجداول؛ يضيف القوالب الافتراضية للقواعد المنشأة بالإصدار 1.
+  /// سجل الإصدارات:
+  /// - 2: لا تغيير في الجداول؛ يضيف القوالب الافتراضية للقواعد المنشأة بالإصدار 1.
+  /// - 3: جدول البحث النصي `cases_fts` (FTS5) ويُبنى من الحالات الموجودة.
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
       await m.createAll();
+      await customStatement(CaseSearchIndex.createStatement);
       await seedDefaults();
     },
     onUpgrade: (m, from, to) async {
       if (from < 2) await seedDefaults();
+      if (from < 3) {
+        await customStatement(CaseSearchIndex.createStatement);
+        await CaseSearchIndex(this).rebuildAll();
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

@@ -11,9 +11,11 @@ import '../../settings/data/settings_repository.dart';
 import '../domain/case_content_hasher.dart';
 import '../domain/case_enums.dart';
 import '../domain/case_form_data.dart';
+import '../domain/case_query.dart';
 import '../domain/case_status_rules.dart';
 import '../domain/case_views.dart';
 import '../domain/form_attachment.dart';
+import 'case_search_index.dart';
 
 /// محاولة تعديل حالة غير قابلة للتعديل أو غير موجودة.
 class CaseNotEditableException implements Exception {
@@ -35,6 +37,7 @@ class CasesRepository {
     DateTime Function()? clock,
     Uuid? uuid,
   }) : _uuid = uuid ?? const Uuid(),
+       _searchIndex = CaseSearchIndex(_db),
        _ids = idGenerator ?? CaseIdGenerator(clock: clock),
        _clock = clock ?? DateTime.now;
 
@@ -46,6 +49,7 @@ class CasesRepository {
   final AttachmentStorage _storage;
   final CaseIdGenerator _ids;
   final Uuid _uuid;
+  final CaseSearchIndex _searchIndex;
   final DateTime Function() _clock;
 
   // ---------------------------------------------------------------- الكتابة
@@ -94,6 +98,7 @@ class CasesRepository {
           committed: committed,
           actor: enteredBy,
         );
+        await _searchIndex.reindexCase(identity.uuid);
         await _audit.log(
           action: AuditActions.caseCreated,
           entityType: auditEntity,
@@ -163,6 +168,7 @@ class CasesRepository {
           committed: committed,
           actor: actor,
         );
+        await _searchIndex.reindexCase(id);
         await _audit.log(
           action: AuditActions.caseUpdated,
           entityType: auditEntity,
@@ -229,8 +235,17 @@ class CasesRepository {
     )..where((c) => c.id.equals(id))).getSingleOrNull();
   }
 
-  /// أحدث الحالات غير المحذوفة (القائمة الكاملة بالتصفية والتحميل التدريجي في المرحلة 6).
-  Stream<List<CaseListItem>> watchRecent({int limit = 100}) {
+  /// صفحة من الحالات حسب [query]، الأحدث أولًا.
+  ///
+  /// تحميل تدريجي بمؤشر (Keyset) بدل OFFSET: الصفحة رقم 100 بسرعة الأولى.
+  Future<CasePage> searchCases(
+    CaseQuery query, {
+    CaseCursor? after,
+    int limit = 30,
+  }) async {
+    final filter = await _filterFor(query);
+    if (filter == null) return const CasePage([], null);
+
     final type = _db.alias(_db.lookupItems, 'type');
     final gov = _db.alias(_db.lookupItems, 'gov');
     final countAlias = _db.alias(_db.attachments, 'att');
@@ -242,36 +257,142 @@ class CasesRepository {
               countAlias.deletedAt.isNull(),
         ),
     );
-    final query =
-        _db.select(_db.cases).join([
-            innerJoin(type, type.id.equalsExp(_db.cases.caseTypeId)),
-            leftOuterJoin(gov, gov.id.equalsExp(_db.cases.governorateId)),
-          ])
-          ..addColumns([imageCount])
-          ..where(_db.cases.deletedAt.isNull())
-          ..orderBy([OrderingTerm.desc(_db.cases.occurredAt)])
-          ..limit(limit);
 
-    return query.watch().map(
-      (rows) => rows.map((row) {
-        final c = row.readTable(_db.cases);
-        final governorate = row.readTableOrNull(gov);
-        return CaseListItem(
-          id: c.id,
-          displayCode: c.displayCode,
-          serialNo: c.serialNo,
-          occurredAt: c.occurredAt.toLocal(),
-          caseTypeLabel: row.readTable(type).label,
-          placeLabel: governorate?.label ?? _nullIfEmpty(c.locationText),
+    var where = filter;
+    if (after != null) {
+      final at = after.occurredAt.toUtc();
+      where =
+          where &
+          (_db.cases.occurredAt.isSmallerThanValue(at) |
+              (_db.cases.occurredAt.equals(at) &
+                  _db.cases.id.isSmallerThanValue(after.id)));
+    }
+
+    final rows =
+        await (_db.select(_db.cases).join([
+                innerJoin(type, type.id.equalsExp(_db.cases.caseTypeId)),
+                leftOuterJoin(gov, gov.id.equalsExp(_db.cases.governorateId)),
+              ])
+              ..addColumns([imageCount])
+              ..where(where)
+              ..orderBy([
+                OrderingTerm.desc(_db.cases.occurredAt),
+                OrderingTerm.desc(_db.cases.id),
+              ])
+              // صف إضافي لمعرفة وجود صفحة تالية دون استعلام عدّ.
+              ..limit(limit + 1))
+            .get();
+
+    final page = rows.take(limit).toList();
+    final items = [
+      for (final row in page)
+        _toListItem(
+          row.readTable(_db.cases),
+          typeLabel: row.readTable(type).label,
+          governorateLabel: row.readTableOrNull(gov)?.label,
           imageCount: row.read(imageCount) ?? 0,
-          displayStatus: CaseStatusRules.displayStatus(
-            status: c.status,
-            revision: c.revision,
-            lastExportedRevision: c.lastExportedRevision,
-            reviewState: c.reviewState,
-          ),
-        );
-      }).toList(),
+        ),
+    ];
+    final last = page.lastOrNull?.readTable(_db.cases);
+    return CasePage(
+      items,
+      rows.length > limit && last != null
+          ? CaseCursor(last.occurredAt, last.id)
+          : null,
+    );
+  }
+
+  /// عدد الحالات المطابقة (يظهر أعلى القائمة).
+  Future<int> countCases(CaseQuery query) async {
+    final filter = await _filterFor(query);
+    if (filter == null) return 0;
+    final count = _db.cases.id.count();
+    return (_db.selectOnly(_db.cases)
+          ..addColumns([count])
+          ..where(filter))
+        .map((r) => r.read(count) ?? 0)
+        .getSingle();
+  }
+
+  /// يُطلق عند أي تغيير في الحالات أو صورها أو جهاتها (لتحديث القوائم).
+  Stream<void> watchChanges() {
+    return _db
+        .tableUpdates(
+          TableUpdateQuery.onAllTables([
+            _db.cases,
+            _db.attachments,
+            _db.caseParties,
+          ]),
+        )
+        .map((_) {});
+  }
+
+  /// شرط SQL للفلاتر، أو null إذا كان البحث النصي بلا نتائج.
+  Future<Expression<bool>?> _filterFor(CaseQuery query) async {
+    Expression<bool> where = _db.cases.deletedAt.isNull();
+
+    final range = query.dateRange(_clock());
+    if (range != null) {
+      where =
+          where &
+          _db.cases.occurredAt.isBiggerOrEqualValue(range.from.toUtc()) &
+          _db.cases.occurredAt.isSmallerThanValue(range.to.toUtc());
+    }
+    if (query.caseTypeId != null) {
+      where = where & _db.cases.caseTypeId.equals(query.caseTypeId!);
+    }
+    if (query.governorateId != null) {
+      where = where & _db.cases.governorateId.equals(query.governorateId!);
+    }
+    if (query.reportSourceId != null) {
+      where = where & _db.cases.reportSourceId.equals(query.reportSourceId!);
+    }
+    final exported = _db.cases.lastExportedRevision;
+    switch (query.exportState) {
+      case ExportState.notExported:
+        where = where & exported.isNull();
+      case ExportState.exported:
+        where =
+            where &
+            exported.isNotNull() &
+            exported.isBiggerOrEqual(_db.cases.revision);
+      case ExportState.modifiedAfterExport:
+        where =
+            where &
+            exported.isNotNull() &
+            exported.isSmallerThan(_db.cases.revision);
+      case null:
+        break;
+    }
+
+    final matches = await _searchIndex.search(query.text);
+    if (matches != null) {
+      if (matches.isEmpty) return null;
+      where = where & _db.cases.id.isIn(matches);
+    }
+    return where;
+  }
+
+  CaseListItem _toListItem(
+    CaseRecord c, {
+    required String typeLabel,
+    required String? governorateLabel,
+    required int imageCount,
+  }) {
+    return CaseListItem(
+      id: c.id,
+      displayCode: c.displayCode,
+      serialNo: c.serialNo,
+      occurredAt: c.occurredAt.toLocal(),
+      caseTypeLabel: typeLabel,
+      placeLabel: governorateLabel ?? _nullIfEmpty(c.locationText),
+      imageCount: imageCount,
+      displayStatus: CaseStatusRules.displayStatus(
+        status: c.status,
+        revision: c.revision,
+        lastExportedRevision: c.lastExportedRevision,
+        reviewState: c.reviewState,
+      ),
     );
   }
 
