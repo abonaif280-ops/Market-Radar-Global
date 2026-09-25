@@ -9,6 +9,8 @@ import '../../../core/utils/arabic_format.dart';
 import '../domain/case_enums.dart';
 import '../domain/case_query.dart';
 import '../domain/case_views.dart';
+import '../../export/data/case_export_service.dart';
+import '../../export/presentation/export_flow.dart';
 import 'case_filters_sheet.dart';
 import 'widgets/status_chip.dart';
 
@@ -20,10 +22,14 @@ class CasesListScreen extends ConsumerStatefulWidget {
     super.key,
     this.title = 'الحالات السابقة',
     this.autofocusSearch = false,
+    this.selectionMode = false,
   });
 
   final String title;
   final bool autofocusSearch;
+
+  /// وضع التحديد المتعدد للتصدير.
+  final bool selectionMode;
 
   @override
   ConsumerState<CasesListScreen> createState() => _CasesListScreenState();
@@ -41,6 +47,7 @@ class _CasesListScreenState extends ConsumerState<CasesListScreen> {
   bool _loading = true;
   bool _loadingMore = false;
   Object? _error;
+  final Set<String> _selected = {};
 
   /// يُهمل نتائج الطلبات القديمة إذا تغير البحث أثناء تنفيذها.
   int _generation = 0;
@@ -160,6 +167,30 @@ class _CasesListScreenState extends ConsumerState<CasesListScreen> {
     if (result != null) _setQuery(result);
   }
 
+  void _toggleSelected(String id) => setState(
+    () => _selected.contains(id) ? _selected.remove(id) : _selected.add(id),
+  );
+
+  void _selectAllLoaded() {
+    setState(() {
+      final allSelected = _items.every((i) => _selected.contains(i.id));
+      if (allSelected) {
+        _selected.removeAll(_items.map((i) => i.id));
+      } else {
+        _selected.addAll(_items.map((i) => i.id));
+      }
+    });
+  }
+
+  Future<void> _exportSelected() async {
+    final done = await ExportFlow.run(
+      context,
+      ref,
+      ExportRequest.selected(_selected.toList()),
+    );
+    if (done && mounted) Navigator.of(context).pop();
+  }
+
   void _clearAll() {
     _searchController.clear();
     _setQuery(const CaseQuery());
@@ -168,7 +199,32 @@ class _CasesListScreenState extends ConsumerState<CasesListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: AppBar(
+        title: Text(widget.title),
+        actions: [
+          if (widget.selectionMode && _items.isNotEmpty)
+            TextButton(
+              onPressed: _selectAllLoaded,
+              child: Text(
+                _items.every((i) => _selected.contains(i.id))
+                    ? 'إلغاء التحديد'
+                    : 'تحديد الكل',
+              ),
+            ),
+        ],
+      ),
+      bottomNavigationBar: widget.selectionMode
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: FilledButton.icon(
+                  onPressed: _selected.isEmpty ? null : _exportSelected,
+                  icon: const Icon(Icons.inventory_2),
+                  label: Text('تصدير المحدد (${_selected.length})'),
+                ),
+              ),
+            )
+          : null,
       body: Column(
         children: [
           Padding(
@@ -237,6 +293,8 @@ class _CasesListScreenState extends ConsumerState<CasesListScreen> {
         items: _items,
         controller: _scrollController,
         loadingMore: _loadingMore,
+        selected: widget.selectionMode ? _selected : null,
+        onToggle: _toggleSelected,
       ),
     );
   }
@@ -303,11 +361,17 @@ class _GroupedList extends StatelessWidget {
     required this.items,
     required this.controller,
     required this.loadingMore,
+    this.selected,
+    this.onToggle,
   });
 
   final List<CaseListItem> items;
   final ScrollController controller;
   final bool loadingMore;
+
+  /// null خارج وضع التحديد.
+  final Set<String>? selected;
+  final ValueChanged<String>? onToggle;
 
   static String _dayLabel(DateTime day) {
     final now = DateTime.now();
@@ -360,7 +424,11 @@ class _GroupedList extends StatelessWidget {
         }
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: _CaseTile(item: entry as CaseListItem),
+          child: _CaseTile(
+            item: entry as CaseListItem,
+            selected: selected?.contains(entry.id),
+            onToggle: onToggle,
+          ),
         );
       },
     );
@@ -368,21 +436,36 @@ class _GroupedList extends StatelessWidget {
 }
 
 class _CaseTile extends StatelessWidget {
-  const _CaseTile({required this.item});
+  const _CaseTile({required this.item, this.selected, this.onToggle});
 
   final CaseListItem item;
+
+  /// null خارج وضع التحديد.
+  final bool? selected;
+  final ValueChanged<String>? onToggle;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final selecting = selected != null;
     return Card(
       clipBehavior: Clip.antiAlias,
+      color: selected == true
+          ? Theme.of(context).colorScheme.secondaryContainer
+          : null,
       child: InkWell(
-        onTap: () => AppRoutes.openCaseDetails(context, item.id),
+        onTap: selecting
+            ? () => onToggle?.call(item.id)
+            : () => AppRoutes.openCaseDetails(context, item.id),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
+              if (selecting)
+                Checkbox(
+                  value: selected,
+                  onChanged: (_) => onToggle?.call(item.id),
+                ),
               SizedBox(
                 width: 56,
                 child: Text(
@@ -420,7 +503,7 @@ class _CaseTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_left),
+              if (!selecting) const Icon(Icons.chevron_left),
             ],
           ),
         ),

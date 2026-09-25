@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../features/cases/presentation/case_details_screen.dart';
 import '../features/cases/presentation/case_form/case_form_screen.dart';
 import '../features/cases/presentation/cases_list_screen.dart';
+import '../features/export/presentation/export_screen.dart';
 import '../shared/widgets/phase_placeholder_screen.dart';
 
 /// نقاط الدخول لشاشات الميزات. تُستبدل الشاشات المؤقتة تباعًا مع كل مرحلة.
@@ -23,14 +24,8 @@ abstract final class AppRoutes {
     const CasesListScreen(title: 'البحث', autofocusSearch: true),
   );
 
-  static Future<void> openExport(BuildContext context) => _push(
-    context,
-    const PhasePlaceholderScreen(
-      title: 'التصدير',
-      icon: Icons.ios_share,
-      phase: 7,
-    ),
-  );
+  static Future<void> openExport(BuildContext context) =>
+      _push(context, const ExportScreen());
 
   static Future<void> openImport(BuildContext context) => _push(
     context,

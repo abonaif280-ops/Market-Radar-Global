@@ -12,6 +12,9 @@ abstract interface class ShareService {
     String? subject,
   });
 
+  /// مشاركة ملف (مثل حزمة .casepkg) عبر قائمة المشاركة أو حفظه في "الملفات".
+  Future<void> shareFile(String path, {String? text});
+
   Future<void> copyText(String text);
 }
 
@@ -35,6 +38,13 @@ class SystemShareService implements ShareService {
         subject: subject,
         files: [for (final path in filePaths) XFile(path)],
       ),
+    );
+  }
+
+  @override
+  Future<void> shareFile(String path, {String? text}) async {
+    await SharePlus.instance.share(
+      ShareParams(files: [XFile(path)], text: text),
     );
   }
 

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -16,11 +18,17 @@ Future<void> main() async {
   final storage = AttachmentStorage(await getApplicationSupportDirectory());
   // صور نماذج لم تُحفظ في جلسة سابقة (مثل إغلاق التطبيق أثناء الإدخال).
   await storage.clearStaging();
+  // حزم التصدير مؤقتة: نسخها المشاركة لدى المستلم، ولا حاجة لبقائها هنا.
+  final exportDir = Directory(
+    '${(await getTemporaryDirectory()).path}/exports',
+  );
+  if (await exportDir.exists()) await exportDir.delete(recursive: true);
 
   final container = ProviderContainer(
     overrides: [
       appDatabaseProvider.overrideWithValue(database),
       attachmentStorageProvider.overrideWithValue(storage),
+      exportDirectoryProvider.overrideWithValue(exportDir),
     ],
   );
   // يضمن توليد المعرف المنطقي للجهاز عند أول تشغيل.

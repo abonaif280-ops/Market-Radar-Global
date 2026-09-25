@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/db/app_database.dart';
@@ -11,6 +13,7 @@ import '../features/cases/data/cases_repository.dart';
 import '../features/cases/domain/case_enums.dart';
 import '../features/cases/domain/case_type_field.dart';
 import '../features/cases/domain/case_views.dart';
+import '../features/export/data/case_export_service.dart';
 import '../features/settings/data/lookup_repository.dart';
 import '../features/settings/data/settings_repository.dart';
 import '../features/templates/data/case_text_composer.dart';
@@ -25,6 +28,22 @@ final appDatabaseProvider = Provider<AppDatabase>(
 final attachmentStorageProvider = Provider<AttachmentStorage>(
   (ref) =>
       throw UnimplementedError('attachmentStorageProvider must be overridden'),
+);
+
+/// مجلد ملفات التصدير المؤقتة؛ يُستبدل في main() وفي الاختبارات.
+final exportDirectoryProvider = Provider<Directory>(
+  (ref) =>
+      throw UnimplementedError('exportDirectoryProvider must be overridden'),
+);
+
+final caseExportServiceProvider = Provider<CaseExportService>(
+  (ref) => CaseExportService(
+    ref.watch(appDatabaseProvider),
+    storage: ref.watch(attachmentStorageProvider),
+    settings: ref.watch(settingsRepositoryProvider),
+    audit: ref.watch(auditLoggerProvider),
+    outputDirectory: ref.watch(exportDirectoryProvider),
+  ),
 );
 
 final locationServiceProvider = Provider<LocationService>(

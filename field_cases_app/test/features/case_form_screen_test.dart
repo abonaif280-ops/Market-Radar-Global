@@ -87,6 +87,9 @@ class _FakeShareService implements ShareService {
   Future<void> copyText(String text) async => copied.add(text);
 
   @override
+  Future<void> shareFile(String path, {String? text}) async => shared.add(path);
+
+  @override
   Future<void> shareText(String text, {String? subject}) async =>
       shared.add(text);
 

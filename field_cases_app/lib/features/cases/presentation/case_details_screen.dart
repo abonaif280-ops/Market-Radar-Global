@@ -7,6 +7,8 @@ import '../../../core/utils/arabic_format.dart';
 import '../domain/case_enums.dart';
 import '../domain/case_views.dart';
 import 'case_form/case_form_screen.dart';
+import '../../export/data/case_export_service.dart';
+import '../../export/presentation/export_flow.dart';
 import 'widgets/case_share_actions.dart';
 import 'widgets/coordinates_actions.dart';
 import 'widgets/photo_grid.dart';
@@ -41,7 +43,18 @@ class CaseDetailsScreen extends ConsumerWidget {
     final details = ref.watch(caseDetailsProvider(caseId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('تفاصيل الحالة')),
+      appBar: AppBar(
+        title: const Text('تفاصيل الحالة'),
+        actions: [
+          if (details.value != null)
+            IconButton(
+              tooltip: 'تصدير هذه الحالة',
+              icon: const Icon(Icons.ios_share),
+              onPressed: () =>
+                  ExportFlow.run(context, ref, ExportRequest.single(caseId)),
+            ),
+        ],
+      ),
       body: details.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('تعذر تحميل الحالة: $e')),

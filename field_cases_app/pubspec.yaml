@@ -49,6 +49,7 @@ dependencies:
   image: ^4.10.1
   url_launcher: ^6.3.2
   share_plus: ^13.3.0
+  archive: ^4.3.0
 
 dev_dependencies:
   flutter_test:
