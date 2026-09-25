@@ -7,6 +7,7 @@ import '../../../core/db/seed_data.dart';
 import '../data/settings_repository.dart';
 import '../../templates/presentation/templates_screen.dart';
 import '../../supervisor/presentation/supervisor_mode_screen.dart';
+import '../../backup/presentation/backup_screen.dart';
 import '../../security/presentation/app_lock_settings_screen.dart';
 import '../../security/presentation/recipient_key_screen.dart';
 import 'lookup_list_screen.dart';
@@ -161,10 +162,16 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ),
                 const Divider(height: 1),
-                const ListTile(
-                  leading: Icon(Icons.backup_outlined),
-                  title: Text('النسخ الاحتياطي والاستعادة'),
-                  subtitle: Text('قيد التنفيذ — المرحلة 14'),
+                ListTile(
+                  leading: const Icon(Icons.backup_outlined),
+                  title: const Text('النسخ الاحتياطي والاستعادة'),
+                  subtitle: const Text('نسخة مشفرة بكلمة مرور تحفظها بنفسك'),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const BackupScreen(),
+                    ),
+                  ),
                 ),
               ],
             ),

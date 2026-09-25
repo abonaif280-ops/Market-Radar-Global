@@ -19,6 +19,7 @@ import '../features/cases/domain/case_views.dart';
 import '../features/export/data/case_export_service.dart';
 import '../features/import/data/import_service.dart';
 import '../features/import/data/version_resolution_service.dart';
+import '../features/backup/data/backup_service.dart';
 import '../features/security/data/app_lock_service.dart';
 import '../features/settings/data/lookup_repository.dart';
 import '../features/supervisor/data/inbox_repository.dart';
@@ -26,6 +27,7 @@ import '../features/supervisor/data/role_service.dart';
 import '../features/settings/data/settings_repository.dart';
 import '../features/templates/data/case_text_composer.dart';
 import '../features/templates/data/template_repository.dart';
+import 'app_restart.dart';
 
 /// تُستبدل في main() بالقاعدة الفعلية، وفي الاختبارات بقاعدة في الذاكرة.
 final appDatabaseProvider = Provider<AppDatabase>(
@@ -42,6 +44,41 @@ final attachmentStorageProvider = Provider<AttachmentStorage>(
 final exportDirectoryProvider = Provider<Directory>(
   (ref) =>
       throw UnimplementedError('exportDirectoryProvider must be overridden'),
+);
+
+/// مفتاح قاعدة الجهاز (من Keychain/Keystore)؛ null في الاختبارات.
+final databaseKeyProvider = Provider<String?>((ref) => null);
+
+/// ملف قاعدة البيانات على القرص؛ يُستبدل في main().
+final databaseFileProvider = Provider<File>(
+  (ref) => throw UnimplementedError('databaseFileProvider must be overridden'),
+);
+
+/// مجلد عمل النسخ الاحتياطي (على نفس قرص القاعدة)؛ يُستبدل في main().
+final backupWorkDirectoryProvider = Provider<Directory>(
+  (ref) => throw UnimplementedError(
+    'backupWorkDirectoryProvider must be overridden',
+  ),
+);
+
+/// إعادة تشغيل التطبيق داخليًا (إغلاق القاعدة ثم فتحها) — تُربط في main().
+final appRestartProvider = Provider<AppRestartController>(
+  (ref) => AppRestartController(),
+);
+
+final backupServiceProvider = Provider<BackupService>(
+  (ref) => BackupService(
+    ref.watch(appDatabaseProvider),
+    settings: ref.watch(settingsRepositoryProvider),
+    secrets: ref.watch(secretStoreProvider),
+    audit: ref.watch(auditLoggerProvider),
+    storageRoot: ref.watch(attachmentStorageProvider).root,
+    outputDirectory: Directory(
+      '${ref.watch(exportDirectoryProvider).path}/backups',
+    ),
+    workDirectory: ref.watch(backupWorkDirectoryProvider),
+    databaseKey: ref.watch(databaseKeyProvider),
+  ),
 );
 
 final caseExportServiceProvider = Provider<CaseExportService>(

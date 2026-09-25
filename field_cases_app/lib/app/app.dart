@@ -10,11 +10,15 @@ class FieldCasesApp extends StatelessWidget {
 
   static const Locale arabic = Locale('ar');
 
+  /// لرسائل تظهر بعد إعادة بناء التطبيق (مثل نجاح الاستعادة).
+  static final messengerKey = GlobalKey<ScaffoldMessengerState>();
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'الحالات الميدانية',
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: messengerKey,
       // العربية فقط؛ اتجاه RTL يُطبَّق تلقائيًا من اللغة.
       locale: arabic,
       supportedLocales: const [arabic],

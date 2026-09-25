@@ -13,6 +13,7 @@ abstract final class SettingKeys {
   static const lastSerialNo = 'last_serial_no';
   static const appLockEnabled = 'app_lock_enabled';
   static const appLockBiometric = 'app_lock_biometric';
+  static const lastBackupAt = 'last_backup_at';
 }
 
 class SettingsRepository {

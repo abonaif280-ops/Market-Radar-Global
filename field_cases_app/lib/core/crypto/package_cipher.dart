@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 
+import 'chunked_aead.dart';
 import 'key_manager.dart';
 
 class PackageCipherException implements Exception {
@@ -85,27 +85,15 @@ class PackageCipher {
   static const int envelopeVersion = 1;
   static const String scheme = 'x25519-hkdf-sha256-aes256gcm-chunked';
   static const int defaultChunkSize = 1024 * 1024;
-  static const int _tagLength = 16;
   static final List<int> _hkdfInfo = utf8.encode('casepkg-v1');
 
   final Random _random;
   final X25519 _x25519 = X25519();
-  final AesGcm _aes = AesGcm.with256bits();
+  final ChunkedAead _aead = ChunkedAead();
   final Hkdf _hkdf = Hkdf(hmac: Hmac.sha256(), outputLength: 32);
 
-  static Future<bool> isEnvelope(File file) async {
-    final raf = await file.open();
-    try {
-      final head = await raf.read(magic.length);
-      if (head.length < magic.length) return false;
-      for (var i = 0; i < magic.length; i++) {
-        if (head[i] != magic[i]) return false;
-      }
-      return true;
-    } finally {
-      await raf.close();
-    }
-  }
+  static Future<bool> isEnvelope(File file) =>
+      ChunkedAead.startsWith(file, magic);
 
   Future<void> encryptFile({
     required File input,
@@ -137,38 +125,23 @@ class PackageCipher {
 
     final partial = File('${output.path}.partial');
     final sink = partial.openWrite();
-    final source = await input.open();
     try {
       sink
         ..add(magic)
-        ..add(_uint16(envelopeVersion))
-        ..add(_uint32(headerBytes.length))
+        ..add(ChunkedAead.uint16(envelopeVersion))
+        ..add(ChunkedAead.uint32(headerBytes.length))
         ..add(headerBytes);
-
-      final total = await input.length();
-      var index = 0;
-      var offset = 0;
-      // حتى الملف الفارغ يُكتب كقطعة أخيرة واحدة ليُتحقق من سلامته.
-      do {
-        final length = min(chunkSize, total - offset);
-        final plain = await source.read(length);
-        offset += length;
-        final isLast = offset >= total;
-        final box = await _aes.encrypt(
-          plain,
-          secretKey: key,
-          nonce: _nonce(header.noncePrefix, index),
-          aad: _aad(headerBytes, index, isLast),
-        );
-        sink
-          ..add(box.cipherText)
-          ..add(box.mac.bytes);
-        index++;
-      } while (offset < total);
+      await _aead.encrypt(
+        input: input,
+        sink: sink,
+        key: key,
+        noncePrefix: header.noncePrefix,
+        headerBytes: headerBytes,
+        chunkSize: chunkSize,
+      );
       await sink.flush();
     } finally {
       await sink.close();
-      await source.close();
     }
     if (await output.exists()) await output.delete();
     await partial.rename(output.path);
@@ -211,41 +184,19 @@ class PackageCipher {
         ),
         header.salt,
       );
-
-      final total = await raf.length();
-      var position = await raf.position();
-      var index = 0;
-      final sealedChunk = header.chunkSize + _tagLength;
-      var sawLast = false;
-      while (position < total) {
-        final length = min(sealedChunk, total - position);
-        if (length < _tagLength) {
-          throw const PackageCipherException('الحزمة المشفرة مقتطعة');
-        }
-        final sealed = await raf.read(length);
-        position += length;
-        final isLast = position >= total;
-        try {
-          final plain = await _aes.decrypt(
-            SecretBox(
-              sealed.sublist(0, length - _tagLength),
-              nonce: _nonce(header.noncePrefix, index),
-              mac: Mac(sealed.sublist(length - _tagLength)),
-            ),
-            secretKey: key,
-            aad: _aad(headerBytes, index, isLast),
-          );
-          sink.add(plain);
-        } on SecretBoxAuthenticationError {
-          throw const PackageCipherException(
-            'فشل التحقق من الحزمة المشفرة: الملف معدل أو تالف أو غير مكتمل',
-          );
-        }
-        sawLast = isLast;
-        index++;
-      }
-      if (!sawLast) {
-        throw const PackageCipherException('الحزمة المشفرة لا تحتوي بيانات');
+      try {
+        await _aead.decrypt(
+          raf: raf,
+          sink: sink,
+          key: key,
+          noncePrefix: header.noncePrefix,
+          headerBytes: headerBytes,
+          chunkSize: header.chunkSize,
+          authFailure:
+              'فشل التحقق من الحزمة المشفرة: الملف معدل أو تالف أو غير مكتمل',
+        );
+      } on ChunkedAeadException catch (e) {
+        throw PackageCipherException(e.message);
       }
       ok = true;
     } finally {
@@ -258,27 +209,21 @@ class PackageCipher {
   // ------------------------------------------------------------ داخلي
 
   Future<(EnvelopeHeader, List<int>)> _readHeader(RandomAccessFile raf) async {
-    final head = await raf.read(magic.length + 2 + 4);
-    if (head.length < magic.length + 6) {
+    final (int, List<int>)? start;
+    try {
+      start = await ChunkedAead.readEnvelopeStart(raf, magic);
+    } on ChunkedAeadException {
+      throw const PackageCipherException('رأس الحزمة المشفرة غير صالح');
+    }
+    if (start == null) {
       throw const PackageCipherException('ليست حزمة مشفرة صالحة');
     }
-    for (var i = 0; i < magic.length; i++) {
-      if (head[i] != magic[i]) {
-        throw const PackageCipherException('ليست حزمة مشفرة صالحة');
-      }
-    }
-    final data = ByteData.sublistView(Uint8List.fromList(head));
-    final version = data.getUint16(magic.length);
+    final (version, headerBytes) = start;
     if (version != envelopeVersion) {
       throw PackageCipherException(
         'إصدار التشفير ($version) أحدث من هذا التطبيق. حدّث التطبيق.',
       );
     }
-    final headerLength = data.getUint32(magic.length + 2);
-    if (headerLength <= 0 || headerLength > 64 * 1024) {
-      throw const PackageCipherException('رأس الحزمة المشفرة غير صالح');
-    }
-    final headerBytes = await raf.read(headerLength);
     try {
       final header = EnvelopeHeader.fromJson(
         jsonDecode(utf8.decode(headerBytes)) as Map<String, dynamic>,
@@ -299,26 +244,6 @@ class PackageCipher {
   Future<SecretKey> _deriveKey(SecretKey shared, List<int> salt) =>
       _hkdf.deriveKey(secretKey: shared, nonce: salt, info: _hkdfInfo);
 
-  List<int> _nonce(List<int> prefix, int index) => [
-    ...prefix,
-    ..._uint32(index),
-  ];
-
-  List<int> _aad(List<int> headerBytes, int index, bool isLast) => [
-    ...headerBytes,
-    ..._uint32(index),
-    isLast ? 1 : 0,
-  ];
-
   List<int> _randomBytes(int n) =>
       List<int>.generate(n, (_) => _random.nextInt(256));
-
-  static List<int> _uint16(int v) => [(v >> 8) & 0xFF, v & 0xFF];
-
-  static List<int> _uint32(int v) => [
-    (v >> 24) & 0xFF,
-    (v >> 16) & 0xFF,
-    (v >> 8) & 0xFF,
-    v & 0xFF,
-  ];
 }
