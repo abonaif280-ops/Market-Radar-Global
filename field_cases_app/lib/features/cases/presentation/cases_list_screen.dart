@@ -124,7 +124,17 @@ class _CaseTile extends StatelessWidget {
                     if (item.placeLabel != null)
                       Text(item.placeLabel!, style: textTheme.bodyMedium),
                     const SizedBox(height: 6),
-                    StatusChip(item.displayStatus),
+                    Row(
+                      children: [
+                        StatusChip(item.displayStatus),
+                        if (item.imageCount > 0) ...[
+                          const SizedBox(width: 10),
+                          const Icon(Icons.photo_outlined, size: 18),
+                          const SizedBox(width: 2),
+                          Text('${item.imageCount}'),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
               ),

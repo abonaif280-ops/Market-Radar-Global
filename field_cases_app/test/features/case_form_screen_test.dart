@@ -1,7 +1,13 @@
+import 'dart:io';
+
 import 'package:field_cases/app/app.dart';
 import 'package:field_cases/app/providers.dart';
 import 'package:field_cases/core/db/app_database.dart';
 import 'package:field_cases/core/db/seed_data.dart';
+import 'package:field_cases/core/files/attachment_storage.dart';
+import 'package:field_cases/core/location/coordinates.dart';
+import 'package:field_cases/core/location/location_service.dart';
+import 'package:field_cases/core/platform/map_launcher.dart';
 import 'package:field_cases/features/cases/data/cases_repository.dart';
 import 'package:field_cases/features/cases/domain/case_enums.dart';
 import 'package:field_cases/features/cases/domain/case_form_data.dart';
@@ -29,6 +35,29 @@ class _FakeCasesRepository implements CasesRepository {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeLocationService implements LocationService {
+  LocationResult result = const LocationSuccess(
+    Coordinates(24.468245, 39.612354),
+    accuracyMeters: 8,
+  );
+
+  @override
+  Future<LocationResult> currentLocation() async => result;
+
+  @override
+  Future<void> openSystemSettings() async {}
+}
+
+class _FakeMapLauncher implements MapLauncher {
+  final opened = <Coordinates>[];
+
+  @override
+  Future<bool> open(Coordinates coordinates, {String? label}) async {
+    opened.add(coordinates);
+    return true;
+  }
 }
 
 LookupItem _item(String listKey, String code, String label, int order) =>
@@ -70,6 +99,11 @@ void main() {
       ProviderScope(
         overrides: [
           casesRepositoryProvider.overrideWithValue(fake),
+          attachmentStorageProvider.overrideWithValue(
+            AttachmentStorage(Directory.systemTemp),
+          ),
+          locationServiceProvider.overrideWithValue(_FakeLocationService()),
+          mapLauncherProvider.overrideWithValue(_FakeMapLauncher()),
           userRoleProvider.overrideWith(
             (ref) => Stream.value(UserRole.employee),
           ),
@@ -123,12 +157,12 @@ void main() {
 
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
-    expect(find.text('الخطوة 1 من 4'), findsOneWidget);
+    expect(find.text('الخطوة 1 من 5'), findsOneWidget);
 
     // الخطوة 1: النوع ينقل تلقائيًا للخطوة التالية.
     await tester.tap(find.text('جسم صلب'));
     await tester.pumpAndSettle();
-    expect(find.text('الخطوة 2 من 4'), findsOneWidget);
+    expect(find.text('الخطوة 2 من 5'), findsOneWidget);
 
     // الخطوة 2: الأساسيات.
     await selectDropdown(tester, 'مصدر البلاغ *', 'العمليات الموحدة (911)');
@@ -148,8 +182,17 @@ void main() {
     await tester.tap(find.text('التالي'));
     await tester.pumpAndSettle();
 
-    // الخطوة 4: المراجعة والحفظ.
-    expect(find.text('الخطوة 4 من 4'), findsOneWidget);
+    // الخطوة 4: الموقع (من خدمة موقع وهمية).
+    expect(find.text('الخطوة 4 من 5'), findsOneWidget);
+    await tester.tap(find.text('التقاط الموقع الحالي'));
+    await tester.pumpAndSettle();
+    expect(find.text('24.468245, 39.612354'), findsOneWidget);
+    expect(find.text('الدقة التقريبية 8 م'), findsOneWidget);
+    await tester.tap(find.text('التالي'));
+    await tester.pumpAndSettle();
+
+    // الخطوة 5: المراجعة والحفظ.
+    expect(find.text('الخطوة 5 من 5'), findsOneWidget);
     expect(find.byIcon(Icons.error_outline), findsNothing);
     await tester.tap(find.text('حفظ الحالة'));
     await tester.pumpAndSettle();
@@ -162,6 +205,8 @@ void main() {
     expect(data.locationText, 'جنوب مركز الرايس');
     expect(data.extraFields['has_fire'], isTrue);
     expect(data.partyIds, {lookupId(LookupKeys.party, 'CIVIL_DEF')});
+    expect(data.latitude, 24.468245);
+    expect(data.longitude, 39.612354);
   });
 
   testWidgets('incomplete case shows errors but can be saved as draft', (
@@ -173,10 +218,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('حريق'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('التالي'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('التالي'));
-    await tester.pumpAndSettle();
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.text('التالي'));
+      await tester.pumpAndSettle();
+    }
 
     expect(find.text('اختر المحافظة'), findsOneWidget);
     expect(find.text('اختر مصدر البلاغ'), findsOneWidget);
@@ -184,12 +229,12 @@ void main() {
     await tester.tap(find.text('حفظ الحالة'));
     await tester.pumpAndSettle();
     expect(fake.created, isEmpty);
-    expect(find.text('الخطوة 2 من 4'), findsOneWidget);
+    expect(find.text('الخطوة 2 من 5'), findsOneWidget);
 
-    await tester.tap(find.text('التالي'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('التالي'));
-    await tester.pumpAndSettle();
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.text('التالي'));
+      await tester.pumpAndSettle();
+    }
     await tester.tap(find.text('حفظ كمسودة'));
     await tester.pumpAndSettle();
     expect(fake.created.single.$2, CaseStatus.draft);
@@ -212,5 +257,53 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('الحالات الميدانية'), findsOneWidget);
     expect(fake.created, isEmpty);
+  });
+
+  testWidgets('coordinates can be entered manually with Arabic digits', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('جسم صلب'));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(find.text('التالي'));
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(find.text('إدخال يدوي'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '٢٤٫٥، ٣٩٫٦');
+    await tester.tap(find.text('حفظ'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('24.500000, 39.600000'), findsOneWidget);
+    expect(find.text('تعديل يدوي'), findsOneWidget);
+
+    await tester.tap(find.text('إزالة'));
+    await tester.pumpAndSettle();
+    expect(find.text('لم تُضف إحداثيات'), findsOneWidget);
+  });
+
+  testWidgets('invalid manual coordinates show an error', (tester) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('جسم صلب'));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(find.text('التالي'));
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(find.text('إدخال يدوي'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '124, 39');
+    await tester.tap(find.text('حفظ'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('الصيغة'), findsOneWidget);
   });
 }

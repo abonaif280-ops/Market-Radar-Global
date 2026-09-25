@@ -11,11 +11,8 @@ import 'case_form_data.dart';
 class CaseContentHasher {
   const CaseContentHasher._();
 
-  /// [attachmentHashes]: بصمات المرفقات بترتيبها (تُضاف من المرحلة 4).
-  static String hash(
-    CaseFormData data, {
-    List<String> attachmentHashes = const [],
-  }) {
+  /// بصمات الصور بترتيبها جزء من المحتوى: إضافة صورة أو حذفها تُعد تعديلًا.
+  static String hash(CaseFormData data) {
     final content = <String, Object?>{
       'case_type_id': data.caseTypeId,
       'occurred_at': data.occurredAt.toUtc().toIso8601String(),
@@ -35,7 +32,7 @@ class CaseContentHasher {
       'extra_fields': data.extraFields,
       'party_ids': data.partyIds.toList()..sort(),
       'final_text': data.finalText?.trim(),
-      'attachments': attachmentHashes,
+      'attachments': [for (final a in data.attachments) a.sha256],
     };
     final canonical = jsonEncode(_canonicalize(content));
     return sha256.convert(utf8.encode(canonical)).toString();

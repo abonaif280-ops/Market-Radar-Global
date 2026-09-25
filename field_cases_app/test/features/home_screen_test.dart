@@ -70,6 +70,6 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
 
-    expect(find.text('الخطوة 1 من 4'), findsOneWidget);
+    expect(find.text('الخطوة 1 من 5'), findsOneWidget);
   });
 }

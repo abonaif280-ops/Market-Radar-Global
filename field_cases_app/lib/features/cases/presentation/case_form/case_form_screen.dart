@@ -9,6 +9,7 @@ import '../../domain/case_form_validator.dart';
 import '../../domain/case_type_field.dart';
 import 'steps/basics_step.dart';
 import 'steps/details_step.dart';
+import 'steps/media_step.dart';
 import 'steps/review_step.dart';
 import 'steps/type_step.dart';
 
@@ -37,6 +38,7 @@ class _CaseFormScreenState extends ConsumerState<CaseFormScreen> {
     CaseFormStep.type: 'نوع الحالة',
     CaseFormStep.basics: 'الأساسيات',
     CaseFormStep.details: 'التفاصيل',
+    CaseFormStep.media: 'الموقع والصور',
     CaseFormStep.review: 'المراجعة والحفظ',
   };
 
@@ -125,6 +127,14 @@ class _CaseFormScreenState extends ConsumerState<CaseFormScreen> {
     }
   }
 
+  /// الخروج دون حفظ: بعد التأكيد تُحذف الصور الجديدة من منطقة الانتظار.
+  Future<void> _exitWithoutSaving() async {
+    if (!await _confirmDiscard() || !mounted) return;
+    final navigator = Navigator.of(context);
+    await ref.read(attachmentStorageProvider).discardStaged(_data.attachments);
+    navigator.pop();
+  }
+
   Future<bool> _confirmDiscard() async {
     if (!_hasChanges) return true;
     final discard = await showDialog<bool>(
@@ -168,9 +178,7 @@ class _CaseFormScreenState extends ConsumerState<CaseFormScreen> {
           _back();
           return;
         }
-        if (await _confirmDiscard() && context.mounted) {
-          Navigator.of(context).pop();
-        }
+        await _exitWithoutSaving();
       },
       child: Scaffold(
         appBar: AppBar(
@@ -179,9 +187,7 @@ class _CaseFormScreenState extends ConsumerState<CaseFormScreen> {
             tooltip: 'إغلاق',
             icon: const Icon(Icons.close),
             onPressed: () async {
-              if (await _confirmDiscard() && context.mounted) {
-                Navigator.of(context).pop();
-              }
+              await _exitWithoutSaving();
             },
           ),
           bottom: PreferredSize(
@@ -205,6 +211,10 @@ class _CaseFormScreenState extends ConsumerState<CaseFormScreen> {
           CaseFormStep.details => DetailsStep(
             data: _data,
             fields: _fields,
+            onChanged: () => setState(() {}),
+          ),
+          CaseFormStep.media => MediaStep(
+            data: _data,
             onChanged: () => setState(() {}),
           ),
           CaseFormStep.review => ReviewStep(

@@ -1,19 +1,26 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:field_cases/core/db/app_database.dart';
 import 'package:field_cases/core/db/audit_logger.dart';
 import 'package:field_cases/core/db/seed_data.dart';
+import 'package:field_cases/core/files/attachment_storage.dart';
 import 'package:field_cases/core/ids/case_id_generator.dart';
 import 'package:field_cases/features/cases/data/cases_repository.dart';
 import 'package:field_cases/features/cases/domain/case_enums.dart';
 import 'package:field_cases/features/cases/domain/case_form_data.dart';
 import 'package:field_cases/features/settings/data/settings_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
+import 'package:path/path.dart' as p;
 
 void main() {
   late AppDatabase db;
   late CasesRepository repo;
   late SettingsRepository settings;
+  late Directory tempDir;
+  late AttachmentStorage storage;
   final now = DateTime(2026, 9, 25, 19, 30);
 
   String type(String code) => lookupId(LookupKeys.caseType, code);
@@ -31,7 +38,19 @@ void main() {
     partyIds: {party('CIVIL_DEF'), party('EOD')},
   );
 
+  /// صورة حقيقية صغيرة تحاكي ملفًا مؤقتًا من الكاميرا.
+  Future<String> cameraFile(String name, {int shade = 100}) async {
+    final image = img.Image(width: 640, height: 480)
+      ..clear(img.ColorRgb8(shade, 120, 140));
+    final file = File(p.join(tempDir.path, 'camera', name));
+    await file.create(recursive: true);
+    await file.writeAsBytes(img.encodeJpg(image));
+    return file.path;
+  }
+
   setUp(() async {
+    tempDir = await Directory.systemTemp.createTemp('cases_repo_test');
+    storage = AttachmentStorage(Directory(p.join(tempDir.path, 'app')));
     db = AppDatabase(NativeDatabase.memory());
     settings = SettingsRepository(db);
     await settings.set(SettingKeys.userCode, 'U-117');
@@ -39,11 +58,15 @@ void main() {
       db,
       settings: settings,
       audit: AuditLogger(db),
+      storage: storage,
       idGenerator: CaseIdGenerator(clock: () => now),
       clock: () => now,
     );
   });
-  tearDown(() => db.close());
+  tearDown(() async {
+    await db.close();
+    await tempDir.delete(recursive: true);
+  });
 
   test('createCase stores ids, serial, parties and audit entry', () async {
     final id = await repo.createCase(
@@ -208,5 +231,103 @@ void main() {
     );
     expect(await settings.get(SettingKeys.lastSerialNo), isNull);
     expect(await db.select(db.cases).get(), isEmpty);
+  });
+
+  group('attachments', () {
+    test('photos are moved into the case folder with ordered names', () async {
+      final form = sampleForm()
+        ..attachments.add(await storage.stageImage(await cameraFile('a.jpg')))
+        ..attachments.add(
+          await storage.stageImage(await cameraFile('b.jpg', shade: 200)),
+        );
+      final id = await repo.createCase(form, status: CaseStatus.completed);
+      final code = (await repo.byId(id))!.displayCode;
+
+      final saved = (await repo.loadForm(id)).attachments;
+      expect(saved.map((a) => a.fileName), [
+        '${code}_001.jpg',
+        '${code}_002.jpg',
+      ]);
+      for (final a in saved) {
+        expect(a.isNew, isFalse);
+        expect(File(a.filePath).existsSync(), isTrue);
+        expect(a.filePath, contains(p.join('attachments', id)));
+        expect(File(a.thumbPath!).existsSync(), isTrue);
+        expect(a.width, 640);
+      }
+      expect(
+        Directory(p.join(tempDir.path, 'app', 'staging')).listSync(),
+        isEmpty,
+      );
+
+      final items = await repo.watchRecent().first;
+      expect(items.single.imageCount, 2);
+      final details = (await repo.watchDetails(id).first)!;
+      expect(details.attachments, hasLength(2));
+    });
+
+    test(
+      'removing and adding photos bumps revision and never reuses names',
+      () async {
+        final form = sampleForm()
+          ..attachments.add(await storage.stageImage(await cameraFile('a.jpg')))
+          ..attachments.add(
+            await storage.stageImage(await cameraFile('b.jpg', shade: 200)),
+          );
+        final id = await repo.createCase(form, status: CaseStatus.completed);
+        final code = (await repo.byId(id))!.displayCode;
+
+        final edit = await repo.loadForm(id);
+        final removed = edit.attachments.removeAt(1);
+        edit.attachments.add(
+          await storage.stageImage(await cameraFile('c.jpg', shade: 50)),
+        );
+        expect(
+          await repo.updateCase(id, edit, status: CaseStatus.completed),
+          isTrue,
+        );
+
+        final after = (await repo.loadForm(id)).attachments;
+        expect(after.map((a) => a.fileName), [
+          '${code}_001.jpg',
+          '${code}_003.jpg',
+        ]);
+        expect((await repo.byId(id))!.revision, 2);
+
+        // الحذف مرن: السجل باقٍ بتاريخ حذف والملف لم يُمسح بعد (يُمسح من "المحذوفات").
+        final removedRow = await (db.select(
+          db.attachments,
+        )..where((a) => a.id.equals(removed.id!))).getSingle();
+        expect(removedRow.deletedAt, isNotNull);
+        expect(File(removed.filePath).existsSync(), isTrue);
+
+        final actions = (await AuditLogger(db).recent()).map((e) => e.action);
+        expect(actions, contains(AuditActions.attachmentDeleted));
+        expect(
+          actions.where((a) => a == AuditActions.attachmentAdded),
+          hasLength(3),
+        );
+      },
+    );
+
+    test('a failed save puts photos back in staging for a retry', () async {
+      final staged = await storage.stageImage(await cameraFile('a.jpg'));
+      final bad = sampleForm()
+        ..reportSourceId = 'report_source:MISSING'
+        ..attachments.add(staged);
+
+      await expectLater(
+        repo.createCase(bad, status: CaseStatus.completed),
+        throwsA(anything),
+      );
+      expect(File(staged.filePath).existsSync(), isTrue);
+      expect(File(staged.thumbPath!).existsSync(), isTrue);
+      expect(await db.select(db.attachments).get(), isEmpty);
+
+      // إعادة المحاولة بعد التصحيح تنجح بنفس الصورة.
+      bad.reportSourceId = source('911');
+      final id = await repo.createCase(bad, status: CaseStatus.completed);
+      expect((await repo.loadForm(id)).attachments, hasLength(1));
+    });
   });
 }

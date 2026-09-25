@@ -13,7 +13,7 @@ class CaseValidationError {
   String toString() => message;
 }
 
-enum CaseFormStep { type, basics, details, review }
+enum CaseFormStep { type, basics, details, media, review }
 
 /// قواعد التحقق: المسودة تحتاج نوع الحالة فقط، والحالة المكتملة تحتاج الأساسيات.
 class CaseFormValidator {

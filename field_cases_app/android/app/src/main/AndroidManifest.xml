@@ -1,5 +1,15 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- التطبيق يعمل دون إنترنت: يُزال إذن INTERNET من نسخة الإصدار حتى لو أضافته مكتبة. -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove"/>
+    <!-- الموقع من GPS فقط عند ضغط المستخدم على "التقاط الموقع الحالي". -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
     <application
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="الحالات الميدانية"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
@@ -40,6 +50,11 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- فتح الإحداثية في تطبيق الخرائط المثبت. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="geo"/>
         </intent>
     </queries>
 </manifest>

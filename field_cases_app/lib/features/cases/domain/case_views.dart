@@ -1,5 +1,6 @@
 import 'case_enums.dart';
 import 'case_status_rules.dart';
+import 'form_attachment.dart';
 
 /// سطر في قائمة الحالات (بيانات خفيفة للعرض السريع).
 class CaseListItem {
@@ -11,6 +12,7 @@ class CaseListItem {
     required this.caseTypeLabel,
     required this.placeLabel,
     required this.displayStatus,
+    this.imageCount = 0,
   });
 
   final String id;
@@ -22,6 +24,7 @@ class CaseListItem {
   /// المحافظة، أو الموقع المكتوب إن لم تُحدد.
   final String? placeLabel;
   final DisplayStatus displayStatus;
+  final int imageCount;
 }
 
 /// تفاصيل الحالة للعرض مع أسماء عناصر القوائم.
@@ -55,6 +58,7 @@ class CaseDetails {
     required this.extraFields,
     required this.partyLabels,
     required this.finalText,
+    this.attachments = const [],
     required this.enteredBy,
     required this.createdAt,
     required this.updatedAt,
@@ -90,6 +94,9 @@ class CaseDetails {
   final Map<String, Object?> extraFields;
   final List<String> partyLabels;
   final String? finalText;
+
+  /// الصور المحفوظة بترتيبها.
+  final List<FormAttachment> attachments;
   final String? enteredBy;
   final DateTime createdAt;
   final DateTime updatedAt;

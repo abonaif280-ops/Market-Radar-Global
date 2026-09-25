@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/location/coordinates.dart';
 import '../../../core/utils/arabic_format.dart';
 import '../domain/case_enums.dart';
 import '../domain/case_views.dart';
 import 'case_form/case_form_screen.dart';
+import 'widgets/coordinates_actions.dart';
+import 'widgets/photo_grid.dart';
 import 'widgets/status_chip.dart';
 
 /// عرض الحالة مع إمكانية التعديل وتغيير المرحلة.
@@ -91,6 +94,10 @@ class _DetailsBody extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
 
+    final muted = scheme.onSurfaceVariant;
+    final coordinates = c.latitude == null || c.longitude == null
+        ? null
+        : Coordinates(c.latitude!, c.longitude!);
     final place = [
       c.governorateLabel,
       c.centerLabel,
@@ -144,15 +151,36 @@ class _DetailsBody extends StatelessWidget {
             ('مصدر البلاغ', c.reportSourceLabel),
             ('المكان', place.isEmpty ? null : place),
             ('وصف الموقع', c.locationDescription),
-            if (c.latitude != null && c.longitude != null)
-              (
-                'الإحداثيات',
-                // عزل اتجاه النص حتى يظهر خط العرض أولًا داخل الواجهة العربية.
-                '\u2066${c.latitude!.toStringAsFixed(6)}, '
-                    '${c.longitude!.toStringAsFixed(6)}\u2069',
-              ),
+            if (coordinates != null)
+              // عزل اتجاه النص حتى يظهر خط العرض أولًا داخل الواجهة العربية.
+              ('الإحداثيات', '\u2066${coordinates.format()}\u2069'),
           ],
+          footer: coordinates == null
+              ? null
+              : CoordinatesActions(
+                  coordinates: coordinates,
+                  label: c.displayCode,
+                ),
         ),
+        if (c.attachments.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'الصور (${c.attachments.length})',
+                    style: TextStyle(color: muted, fontSize: 13),
+                  ),
+                  const SizedBox(height: 10),
+                  PhotoGrid(attachments: c.attachments),
+                ],
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         _InfoCard(
           rows: [
@@ -201,9 +229,10 @@ class _DetailsBody extends StatelessWidget {
 }
 
 class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.rows});
+  const _InfoCard({required this.rows, this.footer});
 
   final List<(String, String?)> rows;
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
@@ -230,6 +259,11 @@ class _InfoCard extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+            if (footer != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 8),
+                child: footer,
               ),
           ],
         ),

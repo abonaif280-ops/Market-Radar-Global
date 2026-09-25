@@ -1,3 +1,5 @@
+import 'form_attachment.dart';
+
 /// بيانات نموذج الحالة أثناء الإدخال أو التعديل (قبل الحفظ في القاعدة).
 ///
 /// التاريخ هنا بالتوقيت المحلي؛ يُحوَّل إلى UTC عند الحفظ فقط.
@@ -23,12 +25,14 @@ class CaseFormData {
     this.notes = '',
     Map<String, Object?>? extraFields,
     Set<String>? partyIds,
+    List<FormAttachment>? attachments,
     this.generatedText,
     this.finalText,
     this.isTextEdited = false,
   }) : occurredAt = occurredAt ?? DateTime.now(),
        extraFields = extraFields ?? <String, Object?>{},
-       partyIds = partyIds ?? <String>{};
+       partyIds = partyIds ?? <String>{},
+       attachments = attachments ?? <FormAttachment>[];
 
   String? caseTypeId;
   DateTime occurredAt;
@@ -54,6 +58,9 @@ class CaseFormData {
 
   /// معرفات الجهات التي تمت مباشرتها.
   final Set<String> partyIds;
+
+  /// الصور بترتيب العرض: المحفوظة مسبقًا + الجديدة في منطقة الانتظار.
+  final List<FormAttachment> attachments;
 
   String? generatedText;
   String? finalText;
@@ -94,6 +101,7 @@ class CaseFormData {
     notes: notes,
     extraFields: Map.of(extraFields),
     partyIds: Set.of(partyIds),
+    attachments: List.of(attachments),
     generatedText: generatedText,
     finalText: finalText,
     isTextEdited: isTextEdited,

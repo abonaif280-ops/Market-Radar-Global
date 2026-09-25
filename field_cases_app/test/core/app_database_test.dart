@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:field_cases/core/db/app_database.dart';
 import 'package:field_cases/core/db/audit_logger.dart';
 import 'package:field_cases/core/db/seed_data.dart';
+import 'package:field_cases/core/files/attachment_storage.dart';
 import 'package:field_cases/features/cases/data/cases_repository.dart';
 import 'package:field_cases/features/cases/domain/case_enums.dart';
 import 'package:field_cases/features/settings/data/lookup_repository.dart';
@@ -142,6 +145,7 @@ void main() {
         db,
         settings: SettingsRepository(db),
         audit: AuditLogger(db),
+        storage: AttachmentStorage(Directory.systemTemp),
         clock: () => now,
       );
       expect(await repo.watchTodayCount().first, 1);

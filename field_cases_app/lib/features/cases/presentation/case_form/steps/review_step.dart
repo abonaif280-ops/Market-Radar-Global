@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../app/providers.dart';
+import '../../../../../core/location/coordinates.dart';
 import '../../../../../core/utils/arabic_format.dart';
 import '../../../domain/case_form_data.dart';
 import '../../../domain/case_form_validator.dart';
 import '../../../domain/case_type_field.dart';
 
-/// الخطوة 4: مراجعة البيانات قبل الحفظ مع الأخطاء إن وجدت.
+/// الخطوة الأخيرة: مراجعة البيانات قبل الحفظ مع الأخطاء إن وجدت.
 ///
-/// تُضاف خطوات الموقع والصور (المرحلة 4) والمعاينة بالنص المولد (المرحلة 5) قبلها.
+/// تُستبدل بشاشة المعاينة مع النص المولد في المرحلة 5.
 class ReviewStep extends ConsumerWidget {
   const ReviewStep({
     super.key,
@@ -44,6 +45,16 @@ class ReviewStep extends ConsumerWidget {
       for (final field in fields)
         if (!field.isEmptyValue(data.extraFields[field.fieldKey]))
           (field.label, Text(_formatExtra(data.extraFields[field.fieldKey]))),
+      (
+        'الإحداثيات',
+        Text(
+          data.latitude == null || data.longitude == null
+              ? '—'
+              : Coordinates(data.latitude!, data.longitude!).format(),
+          textDirection: TextDirection.ltr,
+        ),
+      ),
+      ('الصور', Text('${data.attachments.length}')),
       (
         'الإصابات',
         Text(data.hasInjuries ? 'نعم (${data.injuriesCount})' : 'لا'),

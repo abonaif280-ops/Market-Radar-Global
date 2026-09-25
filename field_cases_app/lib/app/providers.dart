@@ -2,6 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/db/app_database.dart';
 import '../core/db/audit_logger.dart';
+import '../core/files/attachment_storage.dart';
+import '../core/location/location_service.dart';
+import '../core/platform/map_launcher.dart';
+import '../core/platform/photo_picker.dart';
 import '../features/cases/data/cases_repository.dart';
 import '../features/cases/domain/case_enums.dart';
 import '../features/cases/domain/case_type_field.dart';
@@ -13,6 +17,22 @@ import '../features/settings/data/settings_repository.dart';
 final appDatabaseProvider = Provider<AppDatabase>(
   (ref) => throw UnimplementedError('appDatabaseProvider must be overridden'),
 );
+
+/// تُستبدل في main() بمجلد التطبيق الخاص، وفي الاختبارات بمجلد مؤقت.
+final attachmentStorageProvider = Provider<AttachmentStorage>(
+  (ref) =>
+      throw UnimplementedError('attachmentStorageProvider must be overridden'),
+);
+
+final locationServiceProvider = Provider<LocationService>(
+  (ref) => const GeolocatorLocationService(),
+);
+
+final mapLauncherProvider = Provider<MapLauncher>(
+  (ref) => const SystemMapLauncher(),
+);
+
+final photoPickerProvider = Provider<PhotoPicker>((ref) => SystemPhotoPicker());
 
 final settingsRepositoryProvider = Provider<SettingsRepository>(
   (ref) => SettingsRepository(ref.watch(appDatabaseProvider)),
@@ -31,6 +51,7 @@ final casesRepositoryProvider = Provider<CasesRepository>(
     ref.watch(appDatabaseProvider),
     settings: ref.watch(settingsRepositoryProvider),
     audit: ref.watch(auditLoggerProvider),
+    storage: ref.watch(attachmentStorageProvider),
   ),
 );
 
