@@ -27,6 +27,7 @@ import '../features/supervisor/data/role_service.dart';
 import '../features/settings/data/settings_repository.dart';
 import '../features/templates/data/case_text_composer.dart';
 import '../features/templates/data/template_repository.dart';
+import '../features/trash/data/trash_repository.dart';
 import 'app_restart.dart';
 
 /// تُستبدل في main() بالقاعدة الفعلية، وفي الاختبارات بقاعدة في الذاكرة.
@@ -64,6 +65,23 @@ final backupWorkDirectoryProvider = Provider<Directory>(
 /// إعادة تشغيل التطبيق داخليًا (إغلاق القاعدة ثم فتحها) — تُربط في main().
 final appRestartProvider = Provider<AppRestartController>(
   (ref) => AppRestartController(),
+);
+
+final trashRepositoryProvider = Provider<TrashRepository>(
+  (ref) => TrashRepository(
+    ref.watch(appDatabaseProvider),
+    settings: ref.watch(settingsRepositoryProvider),
+    audit: ref.watch(auditLoggerProvider),
+    storage: ref.watch(attachmentStorageProvider),
+  ),
+);
+
+final deletedCasesProvider = StreamProvider.autoDispose<List<DeletedCase>>(
+  (ref) => ref.watch(trashRepositoryProvider).watchDeleted(),
+);
+
+final trashCountProvider = StreamProvider.autoDispose<int>(
+  (ref) => ref.watch(trashRepositoryProvider).watchCount(),
 );
 
 final backupServiceProvider = Provider<BackupService>(

@@ -34,7 +34,10 @@ final lastBackupAtProvider = StreamProvider.autoDispose<DateTime?>(
 
 /// "النسخ الاحتياطي والاستعادة".
 class BackupScreen extends ConsumerStatefulWidget {
-  const BackupScreen({super.key});
+  const BackupScreen({super.key, this.restorePath});
+
+  /// نسخة فُتحت من تطبيق آخر: تبدأ الاستعادة مباشرة (بعد كلمة المرور والتحذير).
+  final String? restorePath;
 
   @override
   ConsumerState<BackupScreen> createState() => _BackupScreenState();
@@ -42,6 +45,17 @@ class BackupScreen extends ConsumerStatefulWidget {
 
 class _BackupScreenState extends ConsumerState<BackupScreen> {
   String? _busyText;
+
+  @override
+  void initState() {
+    super.initState();
+    final path = widget.restorePath;
+    if (path != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _restore(path);
+      });
+    }
+  }
 
   Future<T?> _busy<T>(String text, Future<T> Function() run) async {
     setState(() => _busyText = text);
@@ -89,9 +103,13 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
   // ------------------------------------------------------------ استعادة
 
-  Future<void> _restore() async {
+  Future<void> _pickAndRestore() async {
     final path = await ref.read(backupFilePickerProvider)();
     if (path == null || !mounted) return;
+    await _restore(path);
+  }
+
+  Future<void> _restore(String path) async {
     final service = ref.read(backupServiceProvider);
 
     StagedRestore? staged;
@@ -257,7 +275,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
-                  onPressed: busy ? null : _restore,
+                  onPressed: busy ? null : _pickAndRestore,
                   icon: const Icon(Icons.settings_backup_restore),
                   label: const Text('استعادة نسخة احتياطية'),
                 ),

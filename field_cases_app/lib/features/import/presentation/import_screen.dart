@@ -24,7 +24,10 @@ final packageFilePickerProvider = Provider<PackageFilePicker>(
 
 /// "استيراد بيانات": اختيار الملف ← فحص الحزمة ← معاينة ← اعتماد الاستيراد.
 class ImportScreen extends ConsumerStatefulWidget {
-  const ImportScreen({super.key});
+  const ImportScreen({super.key, this.initialPath});
+
+  /// ملف فُتح من تطبيق آخر (مثل WhatsApp) يُفحص مباشرة دون اختيار.
+  final String? initialPath;
 
   @override
   ConsumerState<ImportScreen> createState() => _ImportScreenState();
@@ -34,6 +37,17 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   ImportReport? _report;
   bool _busy = false;
   String? _busyText;
+
+  @override
+  void initState() {
+    super.initState();
+    final path = widget.initialPath;
+    if (path != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _inspect(path);
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -68,6 +82,10 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
       );
       if (proceed != true) return;
     }
+    await _inspect(path);
+  }
+
+  Future<void> _inspect(String path) async {
     final previous = _report;
     setState(() {
       _busy = true;

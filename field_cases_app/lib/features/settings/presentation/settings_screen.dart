@@ -10,6 +10,8 @@ import '../../supervisor/presentation/supervisor_mode_screen.dart';
 import '../../backup/presentation/backup_screen.dart';
 import '../../security/presentation/app_lock_settings_screen.dart';
 import '../../security/presentation/recipient_key_screen.dart';
+import '../../audit/presentation/audit_log_screen.dart';
+import '../../trash/presentation/trash_screen.dart';
 import 'lookup_list_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -123,6 +125,39 @@ class SettingsScreen extends ConsumerWidget {
                   builder: (_) => const TemplatesScreen(),
                 ),
               ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const _SectionTitle('السجلات'),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.delete_outline),
+                  title: const Text('المحذوفات'),
+                  subtitle: Text(
+                    '${ref.watch(trashCountProvider).value ?? 0} حالة — استعادة أو حذف نهائي',
+                  ),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const TrashScreen(),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.history),
+                  title: const Text('سجل العمليات'),
+                  subtitle: const Text('كل إنشاء وتعديل وحذف وتصدير واستيراد'),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const AuditLogScreen(),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 20),

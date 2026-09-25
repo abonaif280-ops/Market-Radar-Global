@@ -53,6 +53,50 @@ class CaseDetailsScreen extends ConsumerWidget {
     Navigator.of(context).pop();
   }
 
+  Future<void> _delete(
+    BuildContext context,
+    WidgetRef ref,
+    CaseDetails details,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.delete_outline, size: 36),
+        title: const Text('حذف الحالة؟'),
+        content: Text(
+          'تُنقل الحالة ${details.displayCode} إلى "المحذوفات" ويمكن استعادتها '
+          'من الإعدادات.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(96, 44)),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    final trash = ref.read(trashRepositoryProvider);
+    await trash.softDelete(caseId);
+    if (!context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.of(context).pop();
+    messenger.showSnackBar(
+      SnackBar(
+        content: const Text('نُقلت الحالة إلى المحذوفات'),
+        action: SnackBarAction(
+          label: 'تراجع',
+          onPressed: () => trash.restore(caseId),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final details = ref.watch(caseDetailsProvider(caseId));
@@ -79,6 +123,12 @@ class CaseDetailsScreen extends ConsumerWidget {
               icon: const Icon(Icons.ios_share),
               onPressed: () =>
                   ExportFlow.run(context, ref, ExportRequest.single(caseId)),
+            ),
+          if (details.value != null)
+            IconButton(
+              tooltip: 'حذف الحالة',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () => _delete(context, ref, details.value!),
             ),
         ],
       ),

@@ -1,0 +1,8 @@
+# انسخ هذا الملف إلى android/key.properties (لا يُرفع إلى Git) واملأ القيم.
+# إنشاء المفتاح مرة واحدة واحفظه مع كلمة مروره في مكان آمن لدى الجهة:
+#   keytool -genkey -v -keystore ~/field-cases-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias field-cases
+# فقدان المفتاح يعني عدم القدرة على إصدار تحديثات تُثبَّت فوق النسخة الحالية.
+storePassword=
+keyPassword=
+keyAlias=field-cases
+storeFile=/absolute/path/to/field-cases-release.jks
