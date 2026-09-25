@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/db/app_database.dart';
+import '../../cases/domain/case_type_field.dart';
 
 /// الوصول إلى القوائم القابلة للتعديل (أنواع الحالات، المحافظات، ...).
 class LookupRepository {
@@ -32,6 +33,37 @@ class LookupRepository {
     String? parentId,
   }) {
     return _activeQuery(listKey, parentId: parentId).watch();
+  }
+
+  /// كل عناصر القائمة بما فيها المعطلة (لشاشة إدارة القوائم).
+  Stream<List<LookupItem>> watchAllItems(String listKey) {
+    return (_db.select(_db.lookupItems)
+          ..where((l) => l.listKey.equals(listKey))
+          ..orderBy([(l) => OrderingTerm.asc(l.sortOrder)]))
+        .watch();
+  }
+
+  /// الحقول الديناميكية المفعلة لنوع حالة، بترتيب العرض.
+  Future<List<CaseTypeFieldDef>> fieldsForType(String caseTypeId) async {
+    final rows =
+        await (_db.select(_db.caseTypeFields)
+              ..where(
+                (f) =>
+                    f.caseTypeId.equals(caseTypeId) & f.isActive.equals(true),
+              )
+              ..orderBy([(f) => OrderingTerm.asc(f.sortOrder)]))
+            .get();
+    return rows
+        .map(
+          (r) => CaseTypeFieldDef.fromRow(
+            fieldKey: r.fieldKey,
+            label: r.label,
+            inputType: r.inputType,
+            optionsJson: r.optionsJson,
+            isRequired: r.isRequired,
+          ),
+        )
+        .toList();
   }
 
   Future<LookupItem?> byId(String id) {

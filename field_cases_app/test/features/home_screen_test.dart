@@ -21,6 +21,7 @@ void main() {
           orgNameProvider.overrideWith((ref) => Stream.value('شرطة ينبع')),
           userCodeProvider.overrideWith((ref) => Stream.value('U-117')),
           todayCasesCountProvider.overrideWith((ref) => Stream.value(3)),
+          recentCasesProvider.overrideWith((ref) => Stream.value(const [])),
         ],
         child: const FieldCasesApp(),
       ),
@@ -69,6 +70,6 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
 
-    expect(find.text('قيد التنفيذ — المرحلة 3'), findsOneWidget);
+    expect(find.text('الخطوة 1 من 4'), findsOneWidget);
   });
 }

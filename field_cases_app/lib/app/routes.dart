@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 
+import '../features/cases/presentation/case_details_screen.dart';
+import '../features/cases/presentation/case_form/case_form_screen.dart';
 import '../shared/widgets/phase_placeholder_screen.dart';
 
 /// نقاط الدخول لشاشات الميزات. تُستبدل الشاشات المؤقتة تباعًا مع كل مرحلة.
 abstract final class AppRoutes {
-  static Future<void> openNewCase(BuildContext context) => _push(
-    context,
-    const PhasePlaceholderScreen(
-      title: 'حالة جديدة',
-      icon: Icons.add_circle_outline,
-      phase: 3,
-    ),
-  );
+  /// يفتح نموذج حالة جديدة، وبعد الحفظ يعرض تفاصيل الحالة المحفوظة.
+  static Future<void> openNewCase(BuildContext context) async {
+    final id = await Navigator.of(
+      context,
+    ).push<String>(MaterialPageRoute(builder: (_) => const CaseFormScreen()));
+    if (id != null && context.mounted) await openCaseDetails(context, id);
+  }
+
+  static Future<void> openCaseDetails(BuildContext context, String caseId) =>
+      _push(context, CaseDetailsScreen(caseId: caseId));
 
   static Future<void> openSearch(BuildContext context) => _push(
     context,

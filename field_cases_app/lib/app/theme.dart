@@ -41,7 +41,11 @@ abstract final class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(56),
-          textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          textStyle: base.textTheme.titleMedium?.copyWith(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -50,7 +54,11 @@ abstract final class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(52),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          textStyle: base.textTheme.titleMedium?.copyWith(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -66,7 +74,7 @@ abstract final class AppTheme {
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        extendedTextStyle: const TextStyle(
+        extendedTextStyle: base.textTheme.titleMedium?.copyWith(
           fontSize: 18,
           fontWeight: FontWeight.w700,
         ),
@@ -76,7 +84,10 @@ abstract final class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         height: 70,
         labelTextStyle: WidgetStateProperty.all(
-          const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          base.textTheme.labelMedium?.copyWith(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );

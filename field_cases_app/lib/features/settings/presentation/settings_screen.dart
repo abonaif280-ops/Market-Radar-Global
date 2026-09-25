@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import '../../cases/domain/case_enums.dart';
+import '../../../core/db/seed_data.dart';
 import '../data/settings_repository.dart';
+import 'lookup_list_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -12,6 +14,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final orgName = ref.watch(orgNameProvider).value;
     final userCode = ref.watch(userCodeProvider).value;
+    final orgCode = ref.watch(orgCodeProvider).value;
     final role = ref.watch(userRoleProvider).value ?? UserRole.employee;
 
     return Scaffold(
@@ -38,6 +41,20 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 const Divider(height: 1),
                 ListTile(
+                  leading: const Icon(Icons.tag),
+                  title: const Text('رمز الجهة'),
+                  subtitle: Text(_orNotSet(orgCode)),
+                  trailing: const Icon(Icons.edit_outlined),
+                  onTap: () => _editSetting(
+                    context,
+                    ref,
+                    key: SettingKeys.orgCode,
+                    title: 'رمز الجهة',
+                    initial: orgCode,
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
                   leading: const Icon(Icons.badge_outlined),
                   title: const Text('اسم المستخدم أو رمزه'),
                   subtitle: Text(_orNotSet(userCode)),
@@ -60,12 +77,35 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 20),
-          const _SectionTitle('القوائم والقوالب'),
+          const _SectionTitle('القوائم'),
+          Card(
+            child: Column(
+              children: [
+                for (final (i, list) in _lists.indexed) ...[
+                  if (i > 0) const Divider(height: 1),
+                  ListTile(
+                    leading: Icon(list.icon),
+                    title: Text(list.title),
+                    trailing: const Icon(Icons.chevron_left),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => LookupListScreen(
+                          listKey: list.key,
+                          title: list.title,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
           const Card(
             child: ListTile(
-              leading: Icon(Icons.list_alt),
-              title: Text('أنواع الحالات، المحافظات، المراكز، المصادر، الجهات'),
-              subtitle: Text('قيد التنفيذ — المرحلة 3'),
+              leading: Icon(Icons.text_snippet_outlined),
+              title: Text('قوالب صياغة الحالات'),
+              subtitle: Text('قيد التنفيذ — المرحلة 5'),
             ),
           ),
           const SizedBox(height: 20),
@@ -81,6 +121,30 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
   }
+
+  static const _lists = [
+    (
+      key: LookupKeys.caseType,
+      title: 'أنواع الحالات',
+      icon: Icons.category_outlined,
+    ),
+    (
+      key: LookupKeys.governorate,
+      title: 'المحافظات',
+      icon: Icons.location_city,
+    ),
+    (key: LookupKeys.center, title: 'المراكز', icon: Icons.apartment),
+    (
+      key: LookupKeys.reportSource,
+      title: 'مصادر البلاغ',
+      icon: Icons.call_received,
+    ),
+    (
+      key: LookupKeys.party,
+      title: 'الجهات المباشرة',
+      icon: Icons.groups_outlined,
+    ),
+  ];
 
   static String _orNotSet(String? value) =>
       (value == null || value.isEmpty) ? 'غير محدد' : value;

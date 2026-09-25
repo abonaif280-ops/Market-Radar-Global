@@ -138,7 +138,12 @@ void main() {
           .into(db.cases)
           .insert(_case('cccccc03', now, deletedAt: DateTime.now().toUtc()));
 
-      final repo = CasesRepository(db, clock: () => now);
+      final repo = CasesRepository(
+        db,
+        settings: SettingsRepository(db),
+        audit: AuditLogger(db),
+        clock: () => now,
+      );
       expect(await repo.watchTodayCount().first, 1);
     });
 

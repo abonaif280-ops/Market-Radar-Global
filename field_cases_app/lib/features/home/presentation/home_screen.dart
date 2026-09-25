@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../../app/providers.dart';
 import '../../../app/routes.dart';
+import '../../../core/utils/arabic_format.dart';
 import '../../../shared/widgets/big_action_card.dart';
 import '../../cases/domain/case_enums.dart';
 
@@ -92,7 +92,7 @@ class _TodaySummaryCard extends ConsumerWidget {
     final orgName = ref.watch(orgNameProvider).value;
     final role = ref.watch(userRoleProvider).value ?? UserRole.employee;
     final todayCount = ref.watch(todayCasesCountProvider).value ?? 0;
-    final today = DateFormat('EEEE d MMMM y', 'ar').format(DateTime.now());
+    final today = ArabicFormat.weekdayDate(DateTime.now());
 
     return Card(
       child: Padding(
