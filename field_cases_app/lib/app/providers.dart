@@ -49,6 +49,7 @@ final caseExportServiceProvider = Provider<CaseExportService>(
     storage: ref.watch(attachmentStorageProvider),
     settings: ref.watch(settingsRepositoryProvider),
     audit: ref.watch(auditLoggerProvider),
+    keys: ref.watch(keyManagerProvider),
     outputDirectory: ref.watch(exportDirectoryProvider),
   ),
 );
@@ -88,6 +89,7 @@ final importServiceProvider = Provider<ImportService>(
     storage: ref.watch(attachmentStorageProvider),
     settings: ref.watch(settingsRepositoryProvider),
     audit: ref.watch(auditLoggerProvider),
+    keys: ref.watch(keyManagerProvider),
     workDirectory: ref.watch(importDirectoryProvider),
   ),
 );
@@ -142,6 +144,11 @@ final todayStatsProvider = StreamProvider<TodayStats>((ref) async* {
 
 final supervisorPublicKeyProvider = FutureProvider.autoDispose(
   (ref) => ref.watch(keyManagerProvider).supervisorPublicKey(),
+);
+
+/// لدى الموظف: مفتاح المشرف الذي تُشفَّر له الحزم.
+final recipientKeyProvider = FutureProvider.autoDispose(
+  (ref) => ref.watch(keyManagerProvider).recipientKey(),
 );
 
 final locationServiceProvider = Provider<LocationService>(

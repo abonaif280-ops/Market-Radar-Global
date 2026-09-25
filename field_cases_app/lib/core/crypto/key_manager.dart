@@ -62,4 +62,71 @@ class KeyManager {
     final value = await _settings.get(publicKeySetting);
     return value == null ? null : SupervisorPublicKey(base64.decode(value));
   }
+
+  /// زوج مفاتيح المشرف لفك تشفير الحزم الواردة (null إن لم يُفعّل وضع المشرف).
+  Future<SimpleKeyPair?> supervisorKeyPair() async {
+    final stored = await _secrets.read(SecretKeys.supervisorPrivateKey);
+    if (stored == null) return null;
+    return _algorithm.newKeyPairFromSeed(base64.decode(stored));
+  }
+
+  // --------------------------------------------- لدى الموظف: مفتاح المستلم
+
+  static const String recipientKeySetting = 'recipient_public_key';
+  static const String recipientLabelSetting = 'recipient_label';
+
+  /// المفتاح العام للمشرف الذي تُشفَّر له الحزم المصدّرة.
+  Future<RecipientKey?> recipientKey() async {
+    final value = await _settings.get(recipientKeySetting);
+    if (value == null || value.isEmpty) return null;
+    return RecipientKey(
+      SupervisorPublicKey(base64.decode(value)),
+      label: await _settings.get(recipientLabelSetting),
+    );
+  }
+
+  Future<void> setRecipientKey(RecipientKey key) async {
+    await _settings.set(recipientKeySetting, key.publicKey.base64Value);
+    await _settings.set(recipientLabelSetting, key.label ?? '');
+  }
+
+  Future<void> clearRecipientKey() async {
+    await _settings.set(recipientKeySetting, '');
+    await _settings.set(recipientLabelSetting, '');
+  }
+}
+
+/// مفتاح المستلم (المشرف) كما يُنقل عبر رمز QR أو نص يُلصق.
+class RecipientKey {
+  const RecipientKey(this.publicKey, {this.label});
+
+  static const String _prefix = 'FCKEY1';
+
+  final SupervisorPublicKey publicKey;
+
+  /// اسم الجهة/المشرف للعرض فقط.
+  final String? label;
+
+  String get fingerprint => publicKey.fingerprint;
+
+  /// `FCKEY1|<base64>|<label>`
+  String toPayload() =>
+      '$_prefix|${publicKey.base64Value}|${(label ?? '').replaceAll('|', ' ')}';
+
+  /// يعيد null إذا لم يكن النص مفتاحًا صالحًا (32 بايت X25519).
+  static RecipientKey? tryParse(String payload) {
+    final parts = payload.trim().split('|');
+    if (parts.length < 2 || parts[0] != _prefix) return null;
+    try {
+      final bytes = base64.decode(parts[1]);
+      if (bytes.length != 32) return null;
+      final label = parts.length > 2 ? parts.sublist(2).join('|').trim() : '';
+      return RecipientKey(
+        SupervisorPublicKey(bytes),
+        label: label.isEmpty ? null : label,
+      );
+    } on FormatException {
+      return null;
+    }
+  }
 }

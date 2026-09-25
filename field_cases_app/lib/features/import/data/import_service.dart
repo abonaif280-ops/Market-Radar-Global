@@ -4,6 +4,8 @@ import 'package:drift/drift.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
+import '../../../core/crypto/key_manager.dart';
+import '../../../core/crypto/package_cipher.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/db/audit_logger.dart';
 import '../../../core/files/attachment_storage.dart';
@@ -35,7 +37,11 @@ class ImportReport {
     required this.inspection,
     required this.items,
     this.alreadyImportedAt,
+    this.wasEncrypted = false,
   });
+
+  /// كانت الحزمة مشفرة لهذا المشرف وفُك تشفيرها بنجاح.
+  final bool wasEncrypted;
 
   /// نسخة الحزمة داخل مجلد التطبيق.
   final File packageFile;
@@ -105,14 +111,19 @@ class ImportService {
     required this._storage,
     required this._settings,
     required this._audit,
+    required this._keys,
     required this.workDirectory,
+    PackageCipher? cipher,
     this._reader = const CasePackageReader(),
     DateTime Function()? clock,
     Uuid? uuid,
   }) : _clock = clock ?? DateTime.now,
-       _uuid = uuid ?? const Uuid();
+       _uuid = uuid ?? const Uuid(),
+       _cipher = cipher ?? PackageCipher();
 
   final AppDatabase _db;
+  final KeyManager _keys;
+  final PackageCipher _cipher;
   final AttachmentStorage _storage;
   final SettingsRepository _settings;
   final AuditLogger _audit;
@@ -129,10 +140,33 @@ class ImportService {
       throw const ImportException('تعذر الوصول إلى الملف المختار');
     }
     await workDirectory.create(recursive: true);
-    final copy = File(
-      p.join(workDirectory.path, '${_uuid.v4()}.${PackageFormat.extension}'),
+    final id = _uuid.v4();
+    var copy = File(
+      p.join(workDirectory.path, '$id.${PackageFormat.extension}'),
     );
     await source.copy(copy.path);
+
+    var wasEncrypted = false;
+    if (await PackageCipher.isEnvelope(copy)) {
+      final encrypted = copy;
+      copy = File(
+        p.join(workDirectory.path, '$id.plain.${PackageFormat.extension}'),
+      );
+      final error = await _decrypt(encrypted, copy);
+      await encrypted.delete();
+      if (error != null) {
+        return ImportReport(
+          packageFile: copy,
+          inspection: PackageInspection(
+            manifest: null,
+            cases: const [],
+            errors: [error],
+          ),
+          items: const [],
+        );
+      }
+      wasEncrypted = true;
+    }
 
     final inspection = await _reader.inspect(copy);
     if (!inspection.isValid) {
@@ -140,6 +174,7 @@ class ImportService {
         packageFile: copy,
         inspection: inspection,
         items: const [],
+        wasEncrypted: wasEncrypted,
       );
     }
 
@@ -180,6 +215,7 @@ class ImportService {
       inspection: inspection,
       items: items,
       alreadyImportedAt: previous?.importedAt.toLocal(),
+      wasEncrypted: wasEncrypted,
     );
   }
 
@@ -301,6 +337,24 @@ class ImportService {
       rethrow;
     } finally {
       if (await extractDir.exists()) await extractDir.delete(recursive: true);
+    }
+  }
+
+  /// يعيد رسالة خطأ بالعربية، أو null عند النجاح.
+  Future<String?> _decrypt(File encrypted, File output) async {
+    final keyPair = await _keys.supervisorKeyPair();
+    if (keyPair == null) {
+      return 'الحزمة مشفرة. فعّل وضع المشرف على هذا الجهاز لفتحها.';
+    }
+    try {
+      await _cipher.decryptFile(
+        input: encrypted,
+        output: output,
+        recipientKeyPair: keyPair,
+      );
+      return null;
+    } on PackageCipherException catch (e) {
+      return e.message;
     }
   }
 

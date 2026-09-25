@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:archive/archive_io.dart';
 import 'package:drift/native.dart';
 import 'package:field_cases/core/app_info.dart';
+import 'package:field_cases/core/crypto/key_manager.dart';
+import 'package:field_cases/core/security/secret_store.dart';
 import 'package:field_cases/core/db/app_database.dart';
 import 'package:field_cases/core/db/audit_logger.dart';
 import 'package:field_cases/core/db/seed_data.dart';
@@ -55,6 +57,7 @@ void main() {
       storage: storage,
       settings: settings,
       audit: audit,
+      keys: KeyManager(secrets: MemorySecretStore(), settings: settings),
       outputDirectory: Directory(p.join(temp.path, 'exports')),
       clock: () => now,
     );

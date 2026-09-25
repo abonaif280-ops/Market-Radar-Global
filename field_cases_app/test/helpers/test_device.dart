@@ -1,11 +1,13 @@
 import 'dart:io';
 
 import 'package:drift/native.dart';
+import 'package:field_cases/core/crypto/key_manager.dart';
 import 'package:field_cases/core/db/app_database.dart';
 import 'package:field_cases/core/db/audit_logger.dart';
 import 'package:field_cases/core/db/seed_data.dart';
 import 'package:field_cases/core/files/attachment_storage.dart';
 import 'package:field_cases/core/ids/case_id_generator.dart';
+import 'package:field_cases/core/security/secret_store.dart';
 import 'package:field_cases/features/cases/data/cases_repository.dart';
 import 'package:field_cases/features/cases/domain/case_enums.dart';
 import 'package:field_cases/features/cases/domain/case_form_data.dart';
@@ -23,6 +25,7 @@ class TestDevice {
     storage = AttachmentStorage(Directory(p.join(root.path, 'app')));
     settings = SettingsRepository(db);
     audit = AuditLogger(db);
+    keys = KeyManager(secrets: secrets, settings: settings);
     cases = CasesRepository(
       db,
       settings: settings,
@@ -36,6 +39,7 @@ class TestDevice {
       storage: storage,
       settings: settings,
       audit: audit,
+      keys: keys,
       outputDirectory: Directory(p.join(root.path, 'exports')),
       clock: () => now,
     );
@@ -44,6 +48,7 @@ class TestDevice {
       storage: storage,
       settings: settings,
       audit: audit,
+      keys: keys,
       workDirectory: Directory(p.join(root.path, 'imports')),
       clock: () => now,
     );
@@ -69,6 +74,8 @@ class TestDevice {
   late final AttachmentStorage storage;
   late final SettingsRepository settings;
   late final AuditLogger audit;
+  final MemorySecretStore secrets = MemorySecretStore();
+  late final KeyManager keys;
   late final CasesRepository cases;
   late final CaseExportService exporter;
   late final ImportService importer;

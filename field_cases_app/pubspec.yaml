@@ -53,6 +53,8 @@ dependencies:
   flutter_secure_storage: ^11.2.0
   cryptography: ^2.9.0
   file_picker: ^13.1.0
+  sqlite3: ^3.6.0
+  cryptography_flutter: ^2.3.4
 
 dev_dependencies:
   flutter_test:
@@ -108,3 +110,9 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# SQLite3MultipleCiphers بدل SQLite العادي: نفس SQLite مع تشفير الملف (PRAGMA key).
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlite3mc

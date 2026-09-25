@@ -1,8 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+
+import '../security/database_encryption.dart';
 
 import '../../features/cases/domain/case_enums.dart';
 import '../../features/cases/data/case_search_index.dart';
@@ -34,17 +38,29 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
-  /// قاعدة البيانات داخل مجلد التطبيق الخاص (Application Support).
-  factory AppDatabase.open() {
+  /// قاعدة البيانات المشفرة داخل مجلد التطبيق الخاص (Application Support).
+  ///
+  /// [key] من [DatabaseEncryption.obtainKey]؛ يُطبَّق قبل أي استعلام.
+  factory AppDatabase.open({required String key}) {
     return AppDatabase(
       driftDatabase(
-        name: 'field_cases',
-        native: const DriftNativeOptions(
+        name: databaseName,
+        native: DriftNativeOptions(
           databaseDirectory: getApplicationSupportDirectory,
+          setup: (db) => db.execute(DatabaseEncryption.keyPragma(key)),
         ),
       ),
     );
   }
+
+  static const String databaseName = 'field_cases';
+
+  static Future<File> databaseFile() async => File(
+    p.join(
+      (await getApplicationSupportDirectory()).path,
+      '$databaseName.sqlite',
+    ),
+  );
 
   /// سجل الإصدارات:
   /// - 2: لا تغيير في الجداول؛ يضيف القوالب الافتراضية للقواعد المنشأة بالإصدار 1.

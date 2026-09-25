@@ -5,6 +5,8 @@ import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../../../core/app_info.dart';
+import '../../../core/crypto/key_manager.dart';
+import '../../../core/crypto/package_cipher.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/db/audit_logger.dart';
 import '../../../core/files/attachment_storage.dart';
@@ -59,11 +61,15 @@ class ExportPreview {
     required this.caseIds,
     required this.imageCount,
     required this.totalBytes,
+    this.recipient,
   });
 
   final List<String> caseIds;
   final int imageCount;
   final int totalBytes;
+
+  /// المشرف الذي ستُشفَّر له الحزمة؛ null = دون تشفير (لم يُضبط مفتاح).
+  final RecipientKey? recipient;
 
   int get caseCount => caseIds.length;
 }
@@ -73,11 +79,15 @@ class ExportResult {
     required this.file,
     required this.manifest,
     required this.sizeBytes,
+    this.encryptedFor,
   });
 
   final File file;
   final PackageManifest manifest;
   final int sizeBytes;
+
+  /// المستلم الذي شُفّرت له الحزمة؛ null = غير مشفرة.
+  final RecipientKey? encryptedFor;
 
   String get fileName => p.basename(file.path);
 }
@@ -98,14 +108,19 @@ class CaseExportService {
     required this._storage,
     required this._settings,
     required this._audit,
+    required this._keys,
     required this.outputDirectory,
+    PackageCipher? cipher,
     this._writer = const CasePackageWriter(),
     DateTime Function()? clock,
     Uuid? uuid,
   }) : _clock = clock ?? DateTime.now,
-       _uuid = uuid ?? const Uuid();
+       _uuid = uuid ?? const Uuid(),
+       _cipher = cipher ?? PackageCipher();
 
   final AppDatabase _db;
+  final KeyManager _keys;
+  final PackageCipher _cipher;
   final AttachmentStorage _storage;
   final SettingsRepository _settings;
   final AuditLogger _audit;
@@ -122,8 +137,14 @@ class CaseExportService {
 
   Future<ExportPreview> preview(ExportRequest request) async {
     final ids = await _resolveCaseIds(request);
+    final recipient = await _keys.recipientKey();
     if (ids.isEmpty) {
-      return const ExportPreview(caseIds: [], imageCount: 0, totalBytes: 0);
+      return ExportPreview(
+        caseIds: const [],
+        imageCount: 0,
+        totalBytes: 0,
+        recipient: recipient,
+      );
     }
     final count = _db.attachments.id.count();
     final size = _db.attachments.sizeBytes.sum();
@@ -139,6 +160,7 @@ class CaseExportService {
       caseIds: ids,
       imageCount: row.read(count) ?? 0,
       totalBytes: row.read(size) ?? 0,
+      recipient: recipient,
     );
   }
 
@@ -174,8 +196,11 @@ class CaseExportService {
         fileNameFor(orgName: orgName, orgCode: orgCode, time: now),
       ),
     );
+    // إن ضُبط مفتاح المشرف: تُكتب الحزمة ثم تُشفَّر له ويُحذف الملف غير المشفر.
+    final recipient = await _keys.recipientKey();
+    final plain = recipient == null ? output : File('${output.path}.plain');
     final manifest = await _writer.write(
-      output: output,
+      output: plain,
       packageId: packageId,
       createdAt: now,
       appVersion: AppInfo.version,
@@ -184,6 +209,17 @@ class CaseExportService {
       cases: cases,
       attachmentFiles: files,
     );
+    if (recipient != null) {
+      try {
+        await _cipher.encryptFile(
+          input: plain,
+          output: output,
+          recipientPublicKey: recipient.publicKey.bytes,
+        );
+      } finally {
+        if (await plain.exists()) await plain.delete();
+      }
+    }
 
     await _markExported(
       packageId: packageId,
@@ -198,6 +234,7 @@ class CaseExportService {
       file: output,
       manifest: manifest,
       sizeBytes: await output.length(),
+      encryptedFor: recipient,
     );
   }
 
