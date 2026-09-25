@@ -1,5 +1,6 @@
 package sa.fieldcases.field_cases
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+// FlutterFragmentActivity مطلوب لنافذة البصمة (local_auth).
+class MainActivity : FlutterFragmentActivity()

@@ -1,5 +1,6 @@
 import '../../../core/crypto/key_manager.dart';
 import '../../../core/db/audit_logger.dart';
+import '../../../core/security/pin_attempt_guard.dart';
 import '../../../core/security/pin_hasher.dart';
 import '../../../core/security/secret_store.dart';
 import '../../cases/domain/case_enums.dart';
@@ -50,8 +51,11 @@ class RoleService {
   final AuditLogger _audit;
   final DateTime Function() _clock;
 
-  int _failedAttempts = 0;
-  DateTime? _lockedUntil;
+  late final PinAttemptGuard _guard = PinAttemptGuard(
+    maxAttempts: maxAttempts,
+    lockDuration: lockDuration,
+    clock: _clock,
+  );
 
   Future<bool> hasSupervisorPin() async =>
       await _secrets.read(SecretKeys.supervisorPinHash) != null;
@@ -96,23 +100,15 @@ class RoleService {
   }
 
   Future<RoleChangeResult> _verify(String pin) async {
-    final now = _clock();
-    if (_lockedUntil != null && now.isBefore(_lockedUntil!)) {
-      return LockedOut(_lockedUntil!.difference(now));
-    }
-    final stored = await _secrets.read(SecretKeys.supervisorPinHash);
-    if (stored != null && await _hasher.verify(pin, stored)) {
-      _failedAttempts = 0;
-      _lockedUntil = null;
-      return const RoleChanged();
-    }
-    _failedAttempts++;
-    if (_failedAttempts >= maxAttempts) {
-      _failedAttempts = 0;
-      _lockedUntil = now.add(lockDuration);
-      return const LockedOut(lockDuration);
-    }
-    return WrongPin(maxAttempts - _failedAttempts);
+    final result = await _guard.check(() async {
+      final stored = await _secrets.read(SecretKeys.supervisorPinHash);
+      return stored != null && await _hasher.verify(pin, stored);
+    });
+    return switch (result) {
+      PinAccepted() => const RoleChanged(),
+      PinRejected(:final remainingAttempts) => WrongPin(remainingAttempts),
+      PinLockedOut(:final retryAfter) => LockedOut(retryAfter),
+    };
   }
 
   Future<void> _setRole(UserRole role, Map<String, Object?> details) async {

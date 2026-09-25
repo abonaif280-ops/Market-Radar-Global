@@ -13,7 +13,9 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>يُستخدم الموقع فقط عند ضغطك على "التقاط الموقع الحالي" لإضافة الإحداثيات إلى الحالة، ولا يُرسل إلى أي جهة.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>لتصوير الحالة وإرفاق الصور بها. تُحفظ الصور داخل التطبيق فقط.</string>
+	<string>لتصوير الحالة وإرفاق الصور بها، ولمسح رمز مفتاح المشرف. لا يُرسل شيء خارج الجهاز.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>لفتح التطبيق بالتعرف على الوجه بدل إدخال الرمز.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>لاختيار صور من المعرض وإرفاقها بالحالة. تُنسخ داخل التطبيق فقط.</string>
 	<key>LSApplicationQueriesSchemes</key>

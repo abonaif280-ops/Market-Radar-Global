@@ -14,6 +14,7 @@ abstract interface class SecretStore {
 abstract final class SecretKeys {
   static const supervisorPinHash = 'supervisor_pin_hash';
   static const supervisorPrivateKey = 'supervisor_x25519_private';
+  static const appLockPinHash = 'app_lock_pin_hash';
 }
 
 class DeviceSecretStore implements SecretStore {

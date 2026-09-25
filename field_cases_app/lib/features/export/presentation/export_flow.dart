@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/crypto/key_manager.dart';
 import '../data/case_export_service.dart';
 
 /// خطوات التصدير المشتركة (من شاشة التصدير، أو التحديد المتعدد، أو تفاصيل الحالة):
@@ -34,6 +35,8 @@ abstract final class ExportFlow {
             _SummaryRow('عدد الحالات', '${preview.caseCount}'),
             _SummaryRow('عدد الصور', '${preview.imageCount}'),
             _SummaryRow('الحجم التقريبي', formatBytes(preview.totalBytes)),
+            const SizedBox(height: 12),
+            _EncryptionNotice(recipient: preview.recipient),
             const SizedBox(height: 12),
             const Text(
               'ستُحفظ الحالات والصور في ملف واحد ‎.casepkg‎ يمكنك مشاركته '
@@ -169,6 +172,8 @@ class _ResultSheet extends ConsumerWidget {
               textAlign: TextAlign.center,
               style: TextStyle(color: scheme.onSurfaceVariant),
             ),
+            const SizedBox(height: 12),
+            _EncryptionNotice(recipient: result.encryptedFor),
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: () => ref
@@ -194,6 +199,47 @@ class _ResultSheet extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// حالة تشفير الحزمة: لمن شُفّرت، أو تحذير إن كانت غير مشفرة.
+class _EncryptionNotice extends StatelessWidget {
+  const _EncryptionNotice({required this.recipient});
+
+  final RecipientKey? recipient;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final encrypted = recipient != null;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: encrypted ? scheme.primaryContainer : scheme.errorContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            encrypted ? Icons.lock : Icons.lock_open,
+            color: encrypted ? scheme.primary : scheme.error,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              encrypted
+                  ? 'مشفرة لـ ${recipient!.label ?? 'المشرف'} (${recipient!.fingerprint}) — لا يفتحها غيره.'
+                  : 'غير مشفرة: لم يُضبط مفتاح المشرف (الإعدادات ← مفتاح التشفير).',
+              style: TextStyle(
+                color: encrypted
+                    ? scheme.onPrimaryContainer
+                    : scheme.onErrorContainer,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

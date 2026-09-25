@@ -20,6 +20,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import '../helpers/fake_app_lock.dart';
+
 /// مستودع وهمي يلتقط ما يُحفظ دون قاعدة بيانات (الواجهة تُختبر بمعزل).
 class _FakeCasesRepository implements CasesRepository {
   final List<(CaseFormData, CaseStatus)> created = [];
@@ -154,6 +156,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appLockServiceProvider.overrideWithValue(DisabledAppLock()),
           casesRepositoryProvider.overrideWithValue(fake),
           attachmentStorageProvider.overrideWithValue(
             AttachmentStorage(Directory.systemTemp),

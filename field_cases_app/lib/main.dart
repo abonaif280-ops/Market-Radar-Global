@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:cryptography_flutter/cryptography_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -10,14 +9,19 @@ import 'app/app.dart';
 import 'app/providers.dart';
 import 'core/db/app_database.dart';
 import 'core/files/attachment_storage.dart';
+import 'core/security/backup_exclusion.dart';
 import 'core/security/database_encryption.dart';
 import 'core/security/secret_store.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // تنفيذ أصلي (أسرع) لـ AES-GCM و X25519 على iOS/Android.
-  FlutterCryptography.enable();
   await initializeDateFormatting('ar');
+
+  // القاعدة والصور والحزم الواردة لا تُرفع إلى iCloud.
+  await BackupExclusion.exclude([
+    await getApplicationSupportDirectory(),
+    await getApplicationDocumentsDirectory(),
+  ]);
 
   // مفتاح القاعدة من Keychain/Keystore؛ قاعدة قديمة غير مشفرة تُشفَّر مرة واحدة.
   final dbKey = await DatabaseEncryption(const DeviceSecretStore()).obtainKey();

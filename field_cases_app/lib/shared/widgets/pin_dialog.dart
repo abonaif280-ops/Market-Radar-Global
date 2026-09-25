@@ -24,14 +24,19 @@ class PinDialog extends StatefulWidget {
   }
 
   /// يطلب رمزًا جديدًا مرتين للتأكيد. يعيد null عند الإلغاء.
-  static Future<String?> createNew(BuildContext context) async {
+  static Future<String?> createNew(
+    BuildContext context, {
+    String title = 'رمز المشرف الجديد',
+    String? message,
+  }) async {
     String? error;
     while (true) {
       if (!context.mounted) return null;
       final first = await show(
         context,
-        title: 'رمز المشرف الجديد',
+        title: title,
         message:
+            message ??
             'اختر رمزًا من ${PinHasher.pinLength} أرقام لحماية وضع المشرف.',
         error: error,
       );

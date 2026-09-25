@@ -14,6 +14,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import '../../helpers/fake_app_lock.dart';
+
 class _Cases implements CasesRepository {
   final items = [
     for (final (i, label) in [(1, 'جسم صلب'), (2, 'حريق'), (3, 'شظايا')])
@@ -104,6 +106,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appLockServiceProvider.overrideWithValue(DisabledAppLock()),
           casesRepositoryProvider.overrideWithValue(_Cases()),
           caseExportServiceProvider.overrideWithValue(exporter),
           shareServiceProvider.overrideWithValue(share),

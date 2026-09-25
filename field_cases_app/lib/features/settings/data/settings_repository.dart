@@ -11,6 +11,8 @@ abstract final class SettingKeys {
   static const userCode = 'user_code';
   static const role = 'role';
   static const lastSerialNo = 'last_serial_no';
+  static const appLockEnabled = 'app_lock_enabled';
+  static const appLockBiometric = 'app_lock_biometric';
 }
 
 class SettingsRepository {

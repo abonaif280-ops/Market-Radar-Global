@@ -18,6 +18,7 @@ abstract final class AuditActions {
   static const caseApproved = 'case_approved';
   static const caseRejected = 'case_rejected';
   static const roleChanged = 'role_changed';
+  static const appLockChanged = 'app_lock_changed';
   static const backupCreated = 'backup_created';
   static const backupRestored = 'backup_restored';
 }

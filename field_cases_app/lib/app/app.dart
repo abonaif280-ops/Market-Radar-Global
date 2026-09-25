@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import '../features/security/presentation/app_lock_gate.dart';
 import 'app_shell.dart';
 import 'theme.dart';
 
@@ -24,6 +25,7 @@ class FieldCasesApp extends StatelessWidget {
       ],
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
+      builder: (context, child) => AppLockGate(child: child!),
       home: const AppShell(),
     );
   }

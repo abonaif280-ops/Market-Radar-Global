@@ -9,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import '../helpers/fake_app_lock.dart';
+
 /// مستودع وهمي لقائمة الحالات: يسجل الاستعلامات ويعيد نتائج ثابتة.
 class _ListFake implements CasesRepository {
   final queries = <CaseQuery>[];
@@ -61,6 +63,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appLockServiceProvider.overrideWithValue(DisabledAppLock()),
           userRoleProvider.overrideWith((ref) => Stream.value(role)),
           orgNameProvider.overrideWith((ref) => Stream.value('شرطة ينبع')),
           userCodeProvider.overrideWith((ref) => Stream.value('U-117')),

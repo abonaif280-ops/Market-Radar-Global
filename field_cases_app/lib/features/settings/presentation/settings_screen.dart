@@ -7,6 +7,8 @@ import '../../../core/db/seed_data.dart';
 import '../data/settings_repository.dart';
 import '../../templates/presentation/templates_screen.dart';
 import '../../supervisor/presentation/supervisor_mode_screen.dart';
+import '../../security/presentation/app_lock_settings_screen.dart';
+import '../../security/presentation/recipient_key_screen.dart';
 import 'lookup_list_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -124,11 +126,47 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
           const _SectionTitle('الحماية والنسخ الاحتياطي'),
-          const Card(
-            child: ListTile(
-              leading: Icon(Icons.lock_outline),
-              title: Text('قفل التطبيق، المفاتيح، النسخ الاحتياطي'),
-              subtitle: Text('قيد التنفيذ — المرحلتان 13 و14'),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.key_outlined),
+                  title: const Text('مفتاح التشفير (مفتاح المشرف)'),
+                  subtitle: Text(
+                    ref.watch(recipientKeyProvider).value == null
+                        ? 'غير مضبوط — الحزم غير مشفرة'
+                        : 'مضبوط — الحزم تُشفَّر للمشرف',
+                  ),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const RecipientKeyScreen(),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.lock_outline),
+                  title: const Text('قفل التطبيق'),
+                  subtitle: Text(
+                    ref.watch(appLockEnabledProvider).value == true
+                        ? 'مفعّل'
+                        : 'غير مفعّل',
+                  ),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const AppLockSettingsScreen(),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+                const ListTile(
+                  leading: Icon(Icons.backup_outlined),
+                  title: Text('النسخ الاحتياطي والاستعادة'),
+                  subtitle: Text('قيد التنفيذ — المرحلة 14'),
+                ),
+              ],
             ),
           ),
         ],

@@ -19,6 +19,7 @@ import '../features/cases/domain/case_views.dart';
 import '../features/export/data/case_export_service.dart';
 import '../features/import/data/import_service.dart';
 import '../features/import/data/version_resolution_service.dart';
+import '../features/security/data/app_lock_service.dart';
 import '../features/settings/data/lookup_repository.dart';
 import '../features/supervisor/data/inbox_repository.dart';
 import '../features/supervisor/data/role_service.dart';
@@ -75,6 +76,24 @@ final roleServiceProvider = Provider<RoleService>(
     keys: ref.watch(keyManagerProvider),
     audit: ref.watch(auditLoggerProvider),
   ),
+);
+
+final biometricAuthProvider = Provider<BiometricAuth>(
+  (ref) => DeviceBiometricAuth(),
+);
+
+final appLockServiceProvider = Provider<AppLockService>(
+  (ref) => AppLockService(
+    settings: ref.watch(settingsRepositoryProvider),
+    secrets: ref.watch(secretStoreProvider),
+    hasher: ref.watch(pinHasherProvider),
+    biometric: ref.watch(biometricAuthProvider),
+    audit: ref.watch(auditLoggerProvider),
+  ),
+);
+
+final appLockEnabledProvider = StreamProvider<bool>(
+  (ref) => ref.watch(appLockServiceProvider).watchEnabled(),
 );
 
 /// مجلد الحزم الواردة (داخل مساحة التطبيق)؛ يُستبدل في main() وفي الاختبارات.

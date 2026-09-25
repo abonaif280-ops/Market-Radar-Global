@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/providers.dart';
 import '../../../shared/widgets/pin_dialog.dart';
 import '../../cases/domain/case_enums.dart';
+import '../../security/presentation/supervisor_key_qr_screen.dart';
 import '../data/role_service.dart';
 
 /// التحويل بين وضعي الموظف والمشرف، وعرض بصمة مفتاح المشرف.
@@ -191,6 +192,16 @@ class _SupervisorModeScreenState extends ConsumerState<SupervisorModeScreen> {
                   style: TextStyle(color: scheme.onSurfaceVariant),
                 ),
               ),
+              FilledButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const SupervisorKeyQrScreen(),
+                  ),
+                ),
+                icon: const Icon(Icons.qr_code_2),
+                label: const Text('عرض مفتاحي كرمز QR للموظفين'),
+              ),
+              const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: _changePin,
                 icon: const Icon(Icons.password),
