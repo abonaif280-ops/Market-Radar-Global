@@ -10,7 +10,7 @@ import '../../domain/case_type_field.dart';
 import 'steps/basics_step.dart';
 import 'steps/details_step.dart';
 import 'steps/media_step.dart';
-import 'steps/review_step.dart';
+import 'steps/preview_step.dart';
 import 'steps/type_step.dart';
 
 /// النموذج المتدرج لإنشاء حالة جديدة أو تعديل حالة موجودة.
@@ -39,7 +39,7 @@ class _CaseFormScreenState extends ConsumerState<CaseFormScreen> {
     CaseFormStep.basics: 'الأساسيات',
     CaseFormStep.details: 'التفاصيل',
     CaseFormStep.media: 'الموقع والصور',
-    CaseFormStep.review: 'المراجعة والحفظ',
+    CaseFormStep.review: 'معاينة الحالة',
   };
 
   late final CaseFormData _data;
@@ -68,7 +68,55 @@ class _CaseFormScreenState extends ConsumerState<CaseFormScreen> {
   List<CaseValidationError> _errorsFor(CaseStatus target) =>
       CaseFormValidator.validate(_data, targetStatus: target, fields: _fields);
 
-  void _goTo(CaseFormStep step) => setState(() => _step = step);
+  void _goTo(CaseFormStep step) {
+    setState(() => _step = step);
+    if (step == CaseFormStep.review && !_data.isTextEdited) _regenerateText();
+  }
+
+  /// يصوغ النص من القالب؛ لا يمس نصًا عدّله المستخدم إلا بطلبه.
+  Future<void> _regenerateText() async {
+    final text = await ref.read(caseTextComposerProvider).compose(_data);
+    if (!mounted) return;
+    setState(() {
+      _data
+        ..generatedText = text
+        ..finalText = text
+        ..isTextEdited = false;
+    });
+  }
+
+  void _onTextEdited(String text) {
+    _data
+      ..finalText = text
+      ..isTextEdited = text.trim() != (_data.generatedText ?? '').trim();
+    setState(() {});
+  }
+
+  Future<void> _confirmRegenerate() async {
+    if (_data.isTextEdited) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('إعادة الصياغة؟'),
+          content: const Text(
+            'سيُستبدل النص الذي عدّلته بنص جديد من البيانات.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('إلغاء'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('إعادة الصياغة'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+    await _regenerateText();
+  }
 
   void _next() {
     FocusScope.of(context).unfocus();
@@ -103,6 +151,13 @@ class _CaseFormScreenState extends ConsumerState<CaseFormScreen> {
     setState(() => _saving = true);
     final repo = ref.read(casesRepositoryProvider);
     try {
+      // الحالة تُحفظ دائمًا بنصها المولد حتى لو لم تُفتح المعاينة (مثل المسودة).
+      if (!_data.isTextEdited) {
+        final text = await ref.read(caseTextComposerProvider).compose(_data);
+        _data
+          ..generatedText = text
+          ..finalText = text;
+      }
       final String id;
       if (widget.isEditing) {
         id = widget.caseId!;
@@ -217,11 +272,13 @@ class _CaseFormScreenState extends ConsumerState<CaseFormScreen> {
             data: _data,
             onChanged: () => setState(() {}),
           ),
-          CaseFormStep.review => ReviewStep(
+          CaseFormStep.review => PreviewStep(
             data: _data,
             fields: _fields,
             errors: _errorsFor(CaseStatus.completed),
             onGoToStep: _goTo,
+            onTextChanged: _onTextEdited,
+            onRegenerate: _confirmRegenerate,
           ),
         },
         bottomNavigationBar: SafeArea(

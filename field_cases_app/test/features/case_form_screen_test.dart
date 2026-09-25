@@ -8,6 +8,8 @@ import 'package:field_cases/core/files/attachment_storage.dart';
 import 'package:field_cases/core/location/coordinates.dart';
 import 'package:field_cases/core/location/location_service.dart';
 import 'package:field_cases/core/platform/map_launcher.dart';
+import 'package:field_cases/core/platform/share_service.dart';
+import 'package:field_cases/features/templates/data/case_text_composer.dart';
 import 'package:field_cases/features/cases/data/cases_repository.dart';
 import 'package:field_cases/features/cases/domain/case_enums.dart';
 import 'package:field_cases/features/cases/domain/case_form_data.dart';
@@ -50,6 +52,38 @@ class _FakeLocationService implements LocationService {
   Future<void> openSystemSettings() async {}
 }
 
+class _FakeComposer implements CaseTextComposer {
+  int calls = 0;
+
+  @override
+  Future<String> compose(CaseFormData data) async {
+    calls++;
+    return 'نص مولد للحالة';
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeShareService implements ShareService {
+  final shared = <String>[];
+  final copied = <String>[];
+
+  @override
+  Future<void> copyText(String text) async => copied.add(text);
+
+  @override
+  Future<void> shareText(String text, {String? subject}) async =>
+      shared.add(text);
+
+  @override
+  Future<void> shareTextWithFiles(
+    String text,
+    List<String> filePaths, {
+    String? subject,
+  }) async => shared.add(text);
+}
+
 class _FakeMapLauncher implements MapLauncher {
   final opened = <Coordinates>[];
 
@@ -89,7 +123,12 @@ void main() {
     LookupKeys.center: <LookupItem>[],
   };
 
+  late _FakeComposer composer;
+  late _FakeShareService share;
+
   Future<_FakeCasesRepository> pumpApp(WidgetTester tester) async {
+    composer = _FakeComposer();
+    share = _FakeShareService();
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.5;
     addTearDown(tester.view.reset);
@@ -104,6 +143,8 @@ void main() {
           ),
           locationServiceProvider.overrideWithValue(_FakeLocationService()),
           mapLauncherProvider.overrideWithValue(_FakeMapLauncher()),
+          caseTextComposerProvider.overrideWithValue(composer),
+          shareServiceProvider.overrideWithValue(share),
           userRoleProvider.overrideWith(
             (ref) => Stream.value(UserRole.employee),
           ),
@@ -191,8 +232,9 @@ void main() {
     await tester.tap(find.text('التالي'));
     await tester.pumpAndSettle();
 
-    // الخطوة 5: المراجعة والحفظ.
+    // الخطوة 5: المعاينة بالنص المولد ثم الحفظ.
     expect(find.text('الخطوة 5 من 5'), findsOneWidget);
+    expect(find.text('نص مولد للحالة'), findsOneWidget);
     expect(find.byIcon(Icons.error_outline), findsNothing);
     await tester.tap(find.text('حفظ الحالة'));
     await tester.pumpAndSettle();
@@ -206,6 +248,8 @@ void main() {
     expect(data.extraFields['has_fire'], isTrue);
     expect(data.partyIds, {lookupId(LookupKeys.party, 'CIVIL_DEF')});
     expect(data.latitude, 24.468245);
+    expect(data.finalText, 'نص مولد للحالة');
+    expect(data.isTextEdited, isFalse);
     expect(data.longitude, 39.612354);
   });
 
@@ -305,5 +349,51 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('الصيغة'), findsOneWidget);
+  });
+
+  testWidgets('preview text can be edited, copied, shared and regenerated', (
+    tester,
+  ) async {
+    final fake = await pumpApp(tester);
+
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('جسم صلب'));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.text('التالي'));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('معاينة الحالة'), findsOneWidget);
+
+    final editor = find.widgetWithText(TextField, 'نص مولد للحالة');
+    await tester.enterText(editor, 'نص معدل يدويًا');
+    await tester.pumpAndSettle();
+    expect(find.text('معدّل يدويًا'), findsOneWidget);
+
+    await tester.tap(find.text('نسخ النص'));
+    await tester.pumpAndSettle();
+    expect(share.copied.single, 'نص معدل يدويًا');
+
+    await tester.tap(find.text('مشاركة'));
+    await tester.pumpAndSettle();
+    expect(share.shared.single, 'نص معدل يدويًا');
+
+    // إعادة الصياغة تطلب تأكيدًا لأن النص معدل.
+    await tester.ensureVisible(find.text('إعادة الصياغة من البيانات'));
+    await tester.tap(find.text('إعادة الصياغة من البيانات'));
+    await tester.pumpAndSettle();
+    expect(find.text('إعادة الصياغة؟'), findsOneWidget);
+    await tester.tap(find.text('إلغاء'));
+    await tester.pumpAndSettle();
+
+    // الحفظ كمسودة يحفظ النص المعدل كما هو دون إعادة صياغته.
+    final callsBeforeSave = composer.calls;
+    await tester.tap(find.text('حفظ كمسودة'));
+    await tester.pumpAndSettle();
+    final (data, _) = fake.created.single;
+    expect(data.finalText, 'نص معدل يدويًا');
+    expect(data.isTextEdited, isTrue);
+    expect(composer.calls, callsBeforeSave);
   });
 }

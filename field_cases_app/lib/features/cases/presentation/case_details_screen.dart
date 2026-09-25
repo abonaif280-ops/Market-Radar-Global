@@ -7,6 +7,7 @@ import '../../../core/utils/arabic_format.dart';
 import '../domain/case_enums.dart';
 import '../domain/case_views.dart';
 import 'case_form/case_form_screen.dart';
+import 'widgets/case_share_actions.dart';
 import 'widgets/coordinates_actions.dart';
 import 'widgets/photo_grid.dart';
 import 'widgets/status_chip.dart';
@@ -83,13 +84,13 @@ class CaseDetailsScreen extends ConsumerWidget {
   }
 }
 
-class _DetailsBody extends StatelessWidget {
+class _DetailsBody extends ConsumerWidget {
   const _DetailsBody({required this.details});
 
   final CaseDetails details;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = details;
     final textTheme = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
@@ -144,6 +145,8 @@ class _DetailsBody extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 12),
+        _CaseTextCard(details: c),
         const SizedBox(height: 12),
         _InfoCard(
           rows: [
@@ -201,10 +204,6 @@ class _DetailsBody extends StatelessWidget {
             ('ملاحظات', c.notes),
           ],
         ),
-        if (c.finalText != null) ...[
-          const SizedBox(height: 12),
-          _InfoCard(rows: [('نص الحالة', c.finalText)]),
-        ],
         const SizedBox(height: 12),
         _InfoCard(
           rows: [
@@ -265,6 +264,75 @@ class _InfoCard extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 4, bottom: 8),
                 child: footer,
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// نص الحالة مع أزرار النسخ والمشاركة (المشاركة العاجلة عبر WhatsApp أو غيره).
+class _CaseTextCard extends ConsumerWidget {
+  const _CaseTextCard({required this.details});
+
+  final CaseDetails details;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = details.finalText;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'نص الحالة',
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+            ),
+            const SizedBox(height: 6),
+            if (text == null || text.trim().isEmpty)
+              Text(
+                'لا يوجد نص بعد. افتح "تعديل" ثم المعاينة لإنشائه.',
+                style: TextStyle(color: scheme.onSurfaceVariant),
+              )
+            else ...[
+              SelectableText(
+                text,
+                style: const TextStyle(fontSize: 17, height: 1.7),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          CaseShareActions.copy(context, ref, text),
+                      icon: const Icon(Icons.copy),
+                      label: const Text('نسخ النص'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.tonalIcon(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                      ),
+                      onPressed: () => CaseShareActions.share(
+                        context,
+                        ref,
+                        text: text,
+                        photos: details.attachments,
+                        subject: details.displayCode,
+                      ),
+                      icon: const Icon(Icons.share),
+                      label: const Text('مشاركة'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

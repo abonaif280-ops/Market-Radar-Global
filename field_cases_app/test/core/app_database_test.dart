@@ -69,6 +69,16 @@ void main() {
       expect((await repo.byId(fireId))!.label, 'حريق (معدل)');
     });
 
+    test(
+      'default templates exist for each built-in type plus a generic one',
+      () async {
+        final templates = await db.select(db.textTemplates).get();
+        expect(templates, hasLength(5));
+        await db.seedDefaults();
+        expect(await db.select(db.textTemplates).get(), hasLength(5));
+      },
+    );
+
     test('centers are linked to their governorate', () async {
       final centers = await LookupRepository(db).activeItems(
         LookupKeys.center,

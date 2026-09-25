@@ -5,6 +5,7 @@ import '../../../app/providers.dart';
 import '../../cases/domain/case_enums.dart';
 import '../../../core/db/seed_data.dart';
 import '../data/settings_repository.dart';
+import '../../templates/presentation/templates_screen.dart';
 import 'lookup_list_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -101,11 +102,17 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Card(
+          Card(
             child: ListTile(
-              leading: Icon(Icons.text_snippet_outlined),
-              title: Text('قوالب صياغة الحالات'),
-              subtitle: Text('قيد التنفيذ — المرحلة 5'),
+              leading: const Icon(Icons.text_snippet_outlined),
+              title: const Text('قوالب صياغة الحالات'),
+              subtitle: const Text('نص الحالة المولد تلقائيًا لكل نوع'),
+              trailing: const Icon(Icons.chevron_left),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const TemplatesScreen(),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 20),

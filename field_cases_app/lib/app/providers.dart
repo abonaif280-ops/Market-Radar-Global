@@ -6,12 +6,15 @@ import '../core/files/attachment_storage.dart';
 import '../core/location/location_service.dart';
 import '../core/platform/map_launcher.dart';
 import '../core/platform/photo_picker.dart';
+import '../core/platform/share_service.dart';
 import '../features/cases/data/cases_repository.dart';
 import '../features/cases/domain/case_enums.dart';
 import '../features/cases/domain/case_type_field.dart';
 import '../features/cases/domain/case_views.dart';
 import '../features/settings/data/lookup_repository.dart';
 import '../features/settings/data/settings_repository.dart';
+import '../features/templates/data/case_text_composer.dart';
+import '../features/templates/data/template_repository.dart';
 
 /// تُستبدل في main() بالقاعدة الفعلية، وفي الاختبارات بقاعدة في الذاكرة.
 final appDatabaseProvider = Provider<AppDatabase>(
@@ -33,6 +36,25 @@ final mapLauncherProvider = Provider<MapLauncher>(
 );
 
 final photoPickerProvider = Provider<PhotoPicker>((ref) => SystemPhotoPicker());
+
+final shareServiceProvider = Provider<ShareService>(
+  (ref) => const SystemShareService(),
+);
+
+final templateRepositoryProvider = Provider<TemplateRepository>(
+  (ref) => TemplateRepository(ref.watch(appDatabaseProvider)),
+);
+
+final caseTextComposerProvider = Provider<CaseTextComposer>(
+  (ref) => CaseTextComposer(
+    lookups: ref.watch(lookupRepositoryProvider),
+    templates: ref.watch(templateRepositoryProvider),
+  ),
+);
+
+final templatesListProvider = StreamProvider<List<TemplateListItem>>(
+  (ref) => ref.watch(templateRepositoryProvider).watchAll(),
+);
 
 final settingsRepositoryProvider = Provider<SettingsRepository>(
   (ref) => SettingsRepository(ref.watch(appDatabaseProvider)),

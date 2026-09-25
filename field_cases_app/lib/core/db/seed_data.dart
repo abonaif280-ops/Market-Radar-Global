@@ -93,7 +93,7 @@ abstract final class SeedData {
       'object_state',
       'حالة الجسم',
       FieldInputType.select,
-      options: ['جسم سليم', 'أجزاء من جسم', 'بقايا متناثرة'],
+      options: ['جسم صلب سليم', 'أجزاء من جسم صلب', 'بقايا متناثرة'],
     ),
     SeedField('SOLID_OBJECT', 'has_fire', 'وجود حريق', FieldInputType.boolean),
     SeedField(
@@ -108,7 +108,7 @@ abstract final class SeedData {
       'drone_state',
       'حالة الطائرة',
       FieldInputType.select,
-      options: ['سليمة', 'محطمة', 'أجزاء'],
+      options: ['سليمة', 'محطمة', 'على شكل أجزاء متناثرة'],
     ),
     SeedField('DRONE', 'has_fire', 'وجود حريق', FieldInputType.boolean),
     SeedField(

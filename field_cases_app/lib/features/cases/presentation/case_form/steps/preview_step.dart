@@ -7,23 +7,29 @@ import '../../../../../core/utils/arabic_format.dart';
 import '../../../domain/case_form_data.dart';
 import '../../../domain/case_form_validator.dart';
 import '../../../domain/case_type_field.dart';
+import '../../widgets/case_share_actions.dart';
+import '../../widgets/case_text_editor.dart';
+import '../../widgets/photo_grid.dart';
 
-/// الخطوة الأخيرة: مراجعة البيانات قبل الحفظ مع الأخطاء إن وجدت.
-///
-/// تُستبدل بشاشة المعاينة مع النص المولد في المرحلة 5.
-class ReviewStep extends ConsumerWidget {
-  const ReviewStep({
+/// الخطوة الأخيرة "معاينة الحالة": النص المولد (قابل للتعديل والنسخ والمشاركة)،
+/// والبيانات، والإحداثيات، والصور، والأخطاء إن وجدت.
+class PreviewStep extends ConsumerWidget {
+  const PreviewStep({
     super.key,
     required this.data,
     required this.fields,
     required this.errors,
     required this.onGoToStep,
+    required this.onTextChanged,
+    required this.onRegenerate,
   });
 
   final CaseFormData data;
   final List<CaseTypeFieldDef> fields;
   final List<CaseValidationError> errors;
   final ValueChanged<CaseFormStep> onGoToStep;
+  final ValueChanged<String> onTextChanged;
+  final VoidCallback onRegenerate;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -110,6 +116,21 @@ class ReviewStep extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
         ],
+        CaseTextEditor(
+          text: data.finalText ?? '',
+          isEdited: data.isTextEdited,
+          onChanged: onTextChanged,
+          onRegenerate: onRegenerate,
+          onCopy: () =>
+              CaseShareActions.copy(context, ref, data.finalText ?? ''),
+          onShare: () => CaseShareActions.share(
+            context,
+            ref,
+            text: data.finalText ?? '',
+            photos: data.attachments,
+          ),
+        ),
+        const SizedBox(height: 16),
         Card(
           child: Column(
             children: [
@@ -143,6 +164,10 @@ class ReviewStep extends ConsumerWidget {
             ],
           ),
         ),
+        if (data.attachments.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          PhotoGrid(attachments: data.attachments),
+        ],
       ],
     );
   }

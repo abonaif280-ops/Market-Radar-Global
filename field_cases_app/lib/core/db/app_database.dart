@@ -5,6 +5,7 @@ import 'package:drift_flutter/drift_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../features/cases/domain/case_enums.dart';
+import '../../features/templates/domain/default_templates.dart';
 import 'seed_data.dart';
 import 'tables.dart';
 
@@ -44,14 +45,18 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  /// الإصدار 2: لا تغيير في الجداول؛ يضيف القوالب الافتراضية للقواعد المنشأة بالإصدار 1.
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
       await m.createAll();
       await seedDefaults();
+    },
+    onUpgrade: (m, from, to) async {
+      if (from < 2) await seedDefaults();
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -92,6 +97,25 @@ class AppDatabase extends _$AppDatabase {
             ),
             isRequired: Value(field.isRequired),
             sortOrder: Value(SeedData.fields.indexOf(field)),
+          ),
+          mode: InsertMode.insertOrIgnore,
+        );
+      }
+      final now = DateTime.now().toUtc();
+      for (final entry in DefaultTemplates.byCaseType.entries) {
+        final code = entry.key;
+        await into(textTemplates).insert(
+          TextTemplatesCompanion.insert(
+            id: code == null
+                ? DefaultTemplates.genericId
+                : DefaultTemplates.idFor(code),
+            caseTypeId: Value(
+              code == null ? null : lookupId(LookupKeys.caseType, code),
+            ),
+            name: entry.value.$1,
+            body: entry.value.$2,
+            isDefault: const Value(true),
+            updatedAt: now,
           ),
           mode: InsertMode.insertOrIgnore,
         );
