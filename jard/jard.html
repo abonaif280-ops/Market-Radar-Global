@@ -74,6 +74,22 @@ td .act{width:80px;text-align:center}
 .mbox{background:var(--card);border-radius:12px;padding:14px;width:min(640px,100%)}
 .mbox h3{margin:0 0 8px;color:var(--pri2)}
 #sigCv{width:100%;height:220px;background:#fff;border:2px dashed var(--line);border-radius:8px;touch-action:none;display:block}
+.big{font-size:17px!important;padding:13px 18px!important;border-radius:10px!important}
+.bigbtns{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.bigbtns .btn,.bigbtns button{justify-content:center}
+.nres{border-radius:10px;padding:12px;text-align:center;font-size:18px;font-weight:bold;background:var(--peb);color:var(--pe)}
+.nres.ok{background:var(--okb);color:var(--ok)}.nres.short{background:var(--shb);color:var(--sh)}.nres.over{background:var(--ovb);color:var(--ov)}
+.ncard input,.ncard select,.ncard textarea{font-size:17px;padding:11px 12px}
+.ncard label{font-size:14px}
+.mpick{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px}
+.mpick button{flex-direction:column;align-items:center;text-align:center;padding:22px 14px;border:2px solid var(--line);border-radius:14px;gap:8px}
+.mpick button b{font-size:19px;color:var(--pri2)}.mpick button span{font-size:13.5px;color:var(--mut);line-height:1.7}
+.mpick button i{font-style:normal;font-size:40px}
+.mpick button:hover{border-color:var(--pri2)}
+body.mode-notes nav.tabs button:not([data-tab=notes]):not([data-tab=set]){display:none}
+body.mode-notes #curSel,body.mode-notes #hdrMe{display:none}
+.mbtn{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.35)}
+@media (max-width:600px){.mpick{grid-template-columns:1fr}}
 .hint{background:var(--peb);border-radius:8px;padding:8px 12px;font-size:13.5px;color:var(--ink);margin-bottom:10px}
 @media (max-width:760px){
  .filters{grid-template-columns:1fr 1fr}.filters .s{grid-column:1/-1}
@@ -140,11 +156,12 @@ td .act{width:80px;text-align:center}
 <body>
 <header class="top">
  <div class="brand"><img id="hdrLogo" alt="" hidden><div><h1>نظام الجرد الميداني</h1><small id="hdrOrg"></small></div></div>
- <div class="hdr-r"><span class="me" id="hdrMe"></span><select id="curSel" aria-label="الجهة الحالية"></select></div>
+ <div class="hdr-r"><button class="sm mbtn" id="btnMode">🔄 تغيير الوضع</button><span class="me" id="hdrMe"></span><select id="curSel" aria-label="الجهة الحالية"></select></div>
 </header>
 <nav class="tabs">
  <button data-tab="ents" class="on">🏢 الجهات</button>
  <button data-tab="inv">📋 الجرد والمطابقة</button>
+ <button data-tab="notes">📝 الملاحظات</button>
  <button data-tab="com">👥 اللجنة</button>
  <button data-tab="rep">📑 التقرير النهائي</button>
  <button data-tab="tools">⇅ استيراد وتصدير</button>
@@ -206,6 +223,42 @@ td .act{width:80px;text-align:center}
     <tbody id="rowsBody"></tbody>
    </table>
   </div>
+ </div>
+</section>
+
+<!-- ===== الملاحظات ===== -->
+<section id="tab-notes" hidden>
+ <div class="card ncard" id="nCard">
+  <h3 id="nTitle">📝 تسجيل ملاحظة جرد</h3>
+  <div class="grid">
+   <label>اسم الجهة *<input id="nEnt" list="dlNEnts" autocomplete="off" placeholder="اكتب أو اختر الجهة"></label>
+   <label>تاريخ الجرد<input id="nDate" type="date"></label>
+   <label>نوع الصنف *<select id="nCat"></select></label>
+   <label>اسم الصنف *<input id="nName" list="dlNItems" autocomplete="off" placeholder="اكتب أو اختر الصنف"></label>
+   <label>الكمية القيدية *<input id="nBook" inputmode="decimal" autocomplete="off" placeholder="حسب السجلات"></label>
+   <label>الكمية الفعلية *<input id="nAct" inputmode="decimal" autocomplete="off" placeholder="الموجود فعلًا"></label>
+   <div class="nres wide" id="nRes">اكتب الكميتين ليظهر الفرق والنتيجة</div>
+   <label class="wide">الملاحظات<textarea id="nNotes" style="min-height:60px" placeholder="مثال: الجهاز معطل / غير موجود / موجود في مستودع آخر"></textarea></label>
+   <label>اسم المسجّل<input id="nBy" autocomplete="off" placeholder="اسمك (يُحفظ تلقائيًا)"></label>
+  </div>
+  <div class="btns"><button class="pri big" id="nSave">✔ حفظ الملاحظة</button><button class="big" id="nCancel" hidden>إلغاء التعديل</button></div>
+ </div>
+ <div class="card">
+  <div class="bigbtns">
+   <button class="pri big" id="nSend">📤 إرسال الملاحظات لرئيس اللجنة</button>
+   <label class="btn big">📥 استيراد ملفات ملاحظات<input type="file" id="nImp" accept=".txt,.json,text/plain" multiple hidden></label>
+   <button class="big" id="nXls">📊 تصدير Excel</button>
+   <button class="big" id="nPdf">🖨 تقرير PDF</button>
+  </div>
+  <div class="imp-res" id="nImpRes"></div>
+ </div>
+ <div class="card">
+  <h3>الملاحظات المسجلة</h3>
+  <div class="chips" id="nStats"></div>
+  <div class="filters"><input class="s" id="nqS" placeholder="🔍 بحث"><select id="nqE"></select><select id="nqR"><option value="">كل النتائج</option><option value="ok">مطابق</option><option value="short">عجز</option><option value="over">زيادة</option></select><select id="nqB"></select></div>
+  <div class="muted" id="nqCount" style="margin:8px 0"></div>
+  <table class="rows"><thead><tr><th>م</th><th>الجهة</th><th>نوع الصنف</th><th>اسم الصنف</th><th>القيدية</th><th>الفعلية</th><th>الفرق</th><th>النتيجة</th><th>الملاحظات</th><th>تاريخ الجرد</th><th>المسجّل</th><th></th></tr></thead><tbody id="nBody"></tbody></table>
+  <div class="btns"><button id="nMerge">↪ إدراج الملاحظات المعروضة في الجرد الشامل</button><button class="dan" id="nClear">🗑 حذف الملاحظات المعروضة</button></div>
  </div>
 </section>
 
@@ -340,6 +393,15 @@ td .act{width:80px;text-align:center}
  <div class="btns"><button class="pri" id="sigSave">💾 حفظ التوقيع</button><button id="sigClear">مسح</button><button id="sigCancel">إلغاء</button></div>
 </div></div>
 
+<div class="modal" id="modePick" hidden><div class="mbox" style="width:min(720px,100%)">
+ <h3>مرحبًا بك — اختر طريقة العمل</h3>
+ <div class="muted">يمكنك التغيير لاحقًا من زر «🔄 تغيير الوضع» أعلى الشاشة.</div>
+ <div class="mpick">
+  <button data-mode="notes"><i>📝</i><b>وضعية الملاحظات</b><span>تسجيل سريع وبسيط: الجهة، الصنف، الكمية القيدية والفعلية، والملاحظة — ثم إرسالها لرئيس اللجنة</span></button>
+  <button data-mode="full"><i>📊</i><b>وضعية الجرد الشامل</b><span>جرد كامل للجهات والمستودعات مع اللجنة والتوقيعات والتقرير النهائي</span></button>
+ </div>
+</div></div>
+<datalist id="dlNEnts"></datalist><datalist id="dlNItems"></datalist>
 <datalist id="dlItems"></datalist><datalist id="dlWh"></datalist><datalist id="dlEnts"></datalist>
 <div id="print"></div>
 <div id="toast"></div>
@@ -352,7 +414,7 @@ const DEFAULT_CATS=['أجهزة كهربائية','أجهزة حاسب وإلك�
 const ST={ok:'مطابق',short:'عجز',over:'زيادة',pending:'لم يُجرد'};
 const HEAD=['م','اسم الجهة','نوع الصنف','اسم الصنف','الرقم التسلسلي','المستودع','الكمية القيدية','الكمية الفعلية','الفرق','الحالة','الملاحظات','المطابقة بواسطة'];
 const DEF_REPORT=()=>({title:'التقرير النهائي للجنة جرد المستودعات',date:'',intro:'',recs:'',conclusion:'وتأمل اللجنة أن تكون قد وُفّقت في أداء المهمة المكلفة بها، والأمر لكم.',oScope:true,oSum:true,oDisc:true,oPend:true,oAppx:false});
-const blank=()=>({v:2,settings:{hdrR:'',hdrL:'',footer:'',color:'#1f4e79',logo:'',logoW:0,logoH:0},committee:{decision:'',members:[{id:'chair',role:'chair',name:'',rank:'',sig:'',sigAt:''}]},categories:DEFAULT_CATS.slice(),items:[],warehouses:[],entities:[],report:DEF_REPORT(),cur:null});
+const blank=()=>({v:2,settings:{hdrR:'',hdrL:'',footer:'',color:'#1f4e79',logo:'',logoW:0,logoH:0},committee:{decision:'',members:[{id:'chair',role:'chair',name:'',rank:'',sig:'',sigAt:''}]},categories:DEFAULT_CATS.slice(),items:[],warehouses:[],entities:[],notes:[],report:DEF_REPORT(),cur:null});
 const $=id=>document.getElementById(id);
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -367,7 +429,7 @@ function cleanRow(r){return{id:r.id||uid(),cat:trimS(r.cat),name:trimS(r.name),s
 function fixEntity(e){e.id=e.id||uid();e.name=trimS(e.name);e.location=e.location||'';e.rep=e.rep||'';e.phone=e.phone||'';e.repSig=e.repSig||'';e.date=e.date||'';e.warehouses=e.warehouses||[];e.delegates=e.delegates||[];e.notes=e.notes||'';e.rows=(e.rows||[]).map(cleanRow);return e;}
 function load(){
  const b=blank();
- try{const t=localStorage.getItem(KEY);if(t){const o=JSON.parse(t);const s=Object.assign(b,o);s.settings=Object.assign(blank().settings,o.settings||{});s.report=Object.assign(DEF_REPORT(),o.report||{});s.committee=Object.assign(blank().committee,o.committee||{});s.entities=(s.entities||[]).map(fixEntity);return s;}}catch(e){}
+ try{const t=localStorage.getItem(KEY);if(t){const o=JSON.parse(t);const s=Object.assign(b,o);s.settings=Object.assign(blank().settings,o.settings||{});s.report=Object.assign(DEF_REPORT(),o.report||{});s.committee=Object.assign(blank().committee,o.committee||{});s.entities=(s.entities||[]).map(fixEntity);s.notes=s.notes||[];return s;}}catch(e){}
  try{const t=localStorage.getItem(OLDKEY);if(t){const o=JSON.parse(t);// ترحيل بيانات النسخة الأولى
   b.settings.hdrR=(o.settings&&o.settings.org)||'';if(o.settings&&o.settings.logo)Object.assign(b.settings,{logo:o.settings.logo,logoW:o.settings.logoW,logoH:o.settings.logoH});
   b.categories=o.categories||b.categories;b.items=o.items||[];b.warehouses=o.warehouses||[];
@@ -397,11 +459,11 @@ function entDelegates(e){return e.delegates.map(mem).filter(Boolean);}
 function stamp(r){r.updated=new Date().toISOString();const m=mem(ME);if(num(r.actual)!==null){r.by=ME||'';r.byName=m?memLabel(m):(r.byName||'');r.at=r.updated;}}
 
 /* ================= التبويبات ================= */
-const TABS=['ents','inv','com','rep','tools','set'];
+const TABS=['ents','inv','notes','com','rep','tools','set'];
 document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 function showTab(t){document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));TABS.forEach(x=>$('tab-'+x).hidden=x!==t);try{localStorage.setItem(KEY+'_tab',t);}catch(e){}window.scrollTo(0,0);}
 $('curSel').onchange=e=>{S.cur=e.target.value||null;save();renderAll();if(S.cur)showTab('inv');};
-function renderAll(){renderHeader();renderEnts();renderInv();renderCom();renderRep();renderTools();renderSet();}
+function renderAll(){renderHeader();renderEnts();renderInv();renderNotes();renderCom();renderRep();renderTools();renderSet();}
 function renderHeader(){
  const o=S.settings;$('hdrOrg').textContent=lines(o.hdrR).slice(-1)[0]||'';const l=$('hdrLogo');l.hidden=!o.logo;if(o.logo)l.src=o.logo;
  const m=mem(ME);$('hdrMe').textContent=m?'👤 '+(m.name||roleLabel(m)):'👤 لم يُحدَّد المستخدم';
@@ -520,6 +582,93 @@ $('btnRowSave').onclick=()=>{
  save();renderInv();renderEnts();};
 $('btnRowCancel').onclick=()=>resetRow(true);
 function resetRow(clear){editRow=null;if(clear)['fName','fSerial','fWh','fBook','fAct','fNotes'].forEach(i=>$(i).value='');$('rowFormTitle').textContent='إضافة صنف';$('btnRowSave').textContent='➕ إضافة الصنف';$('btnRowCancel').hidden=true;}
+
+/* ================= الملاحظات ================= */
+const NPK='jard_nprefs';let NP={};try{NP=JSON.parse(localStorage.getItem(NPK)||'{}');}catch(e){}
+const saveNP=()=>{try{localStorage.setItem(NPK,JSON.stringify(NP));}catch(e){}};
+let editNote=null;
+function nCalc(n){return calc({book:n.book,actual:n.actual});}
+function nFillForm(){fillCatSelect($('nCat'),$('nCat').value||NP.cat||'',true);if(!$('nDate').value)$('nDate').value=NP.date||today();if(!$('nEnt').value&&NP.ent)$('nEnt').value=NP.ent;if(!$('nBy').value)$('nBy').value=NP.by||(mem(ME)?memLabel(mem(ME)):'');nItemsDl();}
+function nItemsDl(){const c=$('nCat').value;$('dlNItems').innerHTML=S.items.filter(i=>!c||c==='__new'||i.cat===c).map(i=>`<option value="${esc(i.name)}">`).join('');}
+function nLive(){const b=$('nBook').value.trim(),a=$('nAct').value.trim(),el=$('nRes');el.className='nres wide';
+ if(b===''||a===''){el.textContent='اكتب الكميتين ليظهر الفرق والنتيجة';return;}
+ if(num(b)===null||num(a)===null){el.textContent='⚠ الكمية يجب أن تكون رقمًا';return;}
+ const k=calc({book:b,actual:a});el.classList.add(k.st);el.innerHTML=`الفرق: <span class="n">${k.diff>0?'+':''}${k.diff}</span> &nbsp;←&nbsp; النتيجة: ${ST[k.st]}`;}
+['nBook','nAct'].forEach(i=>$(i).addEventListener('input',nLive));
+$('nCat').onchange=()=>{if($('nCat').value==='__new'){const c=prompt('اسم نوع الصنف الجديد:');if(c&&trimS(c)){addCat(c);save();fillCatSelect($('nCat'),trimS(c),true);}else $('nCat').value='';}nItemsDl();};
+$('nName').addEventListener('change',()=>{const it=S.items.find(i=>norm(i.name)===norm($('nName').value));if(it&&!$('nCat').value)fillCatSelect($('nCat'),it.cat,true);});
+[['nEnt','nDate'],['nDate','nCat'],['nName','nBook'],['nBook','nAct'],['nAct','nNotes']].forEach(([a,b])=>$(a).addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$(b).focus();}}));
+$('nSave').onclick=()=>{
+ const ent=trimS($('nEnt').value),cat=$('nCat').value,name=trimS($('nName').value),b=$('nBook').value.trim(),a=$('nAct').value.trim();
+ const miss=[!ent&&'اسم الجهة',(!cat||cat==='__new')&&'نوع الصنف',!name&&'اسم الصنف',b===''&&'الكمية القيدية',a===''&&'الكمية الفعلية'].filter(Boolean);
+ if(miss.length)return toast('أكمل: '+miss.join('، '));
+ if(num(b)===null||num(a)===null)return toast('الكميات يجب أن تكون أرقامًا');
+ const by=trimS($('nBy').value);NP={ent,date:$('nDate').value,cat,by};saveNP();addItem(cat,name);
+ const d={entity:ent,date:$('nDate').value,cat,name,book:String(num(b)),actual:String(num(a)),notes:$('nNotes').value.trim(),byName:by,updated:new Date().toISOString()};
+ if(editNote){Object.assign(S.notes.find(n=>n.id===editNote),d);toast('تم حفظ التعديل');nReset();}
+ else{S.notes.unshift(Object.assign({id:uid(),created:d.updated},d));const k=calc(d);toast(`✔ حُفظت — ${ST[k.st]}`);['nName','nBook','nAct','nNotes'].forEach(i=>$(i).value='');nLive();$('nName').focus();}
+ save();renderNotes();};
+$('nCancel').onclick=()=>nReset();
+function nReset(){editNote=null;['nName','nBook','nAct','nNotes'].forEach(i=>$(i).value='');$('nTitle').textContent='📝 تسجيل ملاحظة جرد';$('nSave').textContent='✔ حفظ الملاحظة';$('nCancel').hidden=true;nLive();}
+['nqS','nqE','nqR','nqB'].forEach(i=>$(i).addEventListener('input',renderNotesList));
+function nFiltered(){const q=norm($('nqS').value),e=$('nqE').value,r=$('nqR').value,b=$('nqB').value;return S.notes.filter(n=>(!e||n.entity===e)&&(!r||nCalc(n).st===r)&&(!b||n.byName===b)&&(!q||norm([n.entity,n.cat,n.name,n.notes,n.byName].join(' ')).includes(q)));}
+function renderNotes(){nFillForm();
+ const ents=[...new Set(S.notes.map(n=>n.entity).concat(S.entities.map(e=>e.name)))];$('dlNEnts').innerHTML=ents.map(e=>`<option value="${esc(e)}">`).join('');
+ const ue=[...new Set(S.notes.map(n=>n.entity))],ub=[...new Set(S.notes.map(n=>n.byName).filter(Boolean))];const ve=$('nqE').value,vb=$('nqB').value;
+ $('nqE').innerHTML='<option value="">كل الجهات</option>'+ue.map(x=>`<option${x===ve?' selected':''}>${esc(x)}</option>`).join('');
+ $('nqB').innerHTML='<option value="">كل المسجّلين</option>'+ub.map(x=>`<option${x===vb?' selected':''}>${esc(x)}</option>`).join('');
+ renderNotesList();}
+function renderNotesList(){const L=nFiltered(),c={ok:0,short:0,over:0};L.forEach(n=>c[nCalc(n).st]++);
+ $('nStats').innerHTML=`<span class="chip">${L.length} ملاحظة</span><span class="chip">${new Set(L.map(n=>n.entity)).size} جهة</span><span class="chip ok">مطابق ${c.ok}</span><span class="chip short">عجز ${c.short}</span><span class="chip over">زيادة ${c.over}</span>`;
+ $('nqCount').textContent=L.length===S.notes.length?`إجمالي الملاحظات: ${S.notes.length}`:`المعروض ${L.length} من ${S.notes.length}`;
+ $('nBody').innerHTML=L.length?L.map((n,i)=>{const k=nCalc(n);return `<tr data-id="${n.id}"><td data-l="م">${i+1}</td><td data-l="الجهة" class="tx"><b>${esc(n.entity)}</b></td><td data-l="نوع الصنف">${esc(n.cat)}</td><td data-l="اسم الصنف" class="tx">${esc(n.name)}</td><td data-l="القيدية">${esc(n.book)}</td><td data-l="الفعلية">${esc(n.actual)}</td><td data-l="الفرق">${fmtDiff(k.diff)}</td><td data-l="النتيجة"><span class="badge b-${k.st}">${ST[k.st]}</span></td><td data-l="الملاحظات" class="tx">${esc(n.notes)||'—'}</td><td data-l="تاريخ الجرد">${esc(fmtDate(n.date))}</td><td data-l="المسجّل">${esc(n.byName)||'—'}${n.merged?' <span title="أُدرجت في الجرد الشامل">↪</span>':''}</td><td data-l=""><div class="actw"><button class="sm" data-n="edit">✏</button><button class="sm dan" data-n="del">🗑</button></div></td></tr>`;}).join(''):'<tr><td colspan="12" class="empty">لا توجد ملاحظات بعد — سجّل أول ملاحظة من النموذج أعلاه</td></tr>';}
+$('nBody').addEventListener('click',ev=>{const b=ev.target.closest('button[data-n]');if(!b)return;const n=S.notes.find(x=>x.id===b.closest('tr').dataset.id);if(!n)return;
+ if(b.dataset.n==='del'){if(confirm('حذف ملاحظة «'+n.name+'»؟')){S.notes=S.notes.filter(x=>x!==n);save();renderNotes();}return;}
+ editNote=n.id;$('nEnt').value=n.entity;$('nDate').value=n.date;fillCatSelect($('nCat'),n.cat,true);$('nName').value=n.name;$('nBook').value=n.book;$('nAct').value=n.actual;$('nNotes').value=n.notes;$('nBy').value=n.byName;nLive();
+ $('nTitle').textContent='✏ تعديل الملاحظة';$('nSave').textContent='💾 حفظ التعديل';$('nCancel').hidden=false;$('nCard').scrollIntoView({behavior:'smooth'});});
+function mergeNotes(list){let added=0,updated=0,same=0;list.forEach(n=>{if(!n||!n.name)return;n=Object.assign({id:uid(),entity:'',date:'',cat:'',name:'',book:'0',actual:'',notes:'',byName:'',updated:''},n);
+ const x=S.notes.find(y=>y.id===n.id);addItem(n.cat,n.name);
+ if(!x){S.notes.push(n);added++;}else if((n.updated||'')>(x.updated||'')){const m=x.merged;Object.assign(x,n);x.merged=m&&x.merged;updated++;}else same++;});
+ S.notes.sort((a,b)=>(b.created||'').localeCompare(a.created||''));return{added,updated,same};}
+$('nImp').onchange=async ev=>{const out=await importFiles(ev.target.files);ev.target.value='';$('nImpRes').textContent=out.join('\n');};
+function notesBlob(L){return new Blob([JSON.stringify({type:'jard-notes',version:1,exportedAt:new Date().toISOString(),from:trimS($('nBy').value),notes:L},null,1)],{type:'text/plain;charset=utf-8'});}
+$('nSend').onclick=async()=>{const L=nFiltered();if(!L.length)return toast('لا توجد ملاحظات للإرسال');
+ const by=trimS($('nBy').value),ents=[...new Set(L.map(n=>n.entity))];
+ const fname=safeName('ملاحظات جرد - '+(ents.length===1?ents[0]:ents.length+' جهات')+(by?' - '+by:'')+' - '+today()+'.txt');
+ const blob=notesBlob(L);const f=new File([blob],fname,{type:'text/plain'});
+ try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:fname});toast('تم الإرسال');return;}}catch(err){if(err.name==='AbortError')return;}
+ dl(blob,fname);toast('تم حفظ ملف الملاحظات — أرسله لرئيس اللجنة');};
+function notesSorted(){return nFiltered().slice().sort((a,b)=>a.entity.localeCompare(b.entity,'ar')||(a.date||'').localeCompare(b.date||''));}
+const NHEAD=['م','اسم الجهة','نوع الصنف','اسم الصنف','الكمية القيدية','الكمية الفعلية','الفرق','النتيجة','الملاحظات','تاريخ الجرد','المسجّل'];
+$('nXls').onclick=()=>{const L=notesSorted();if(!L.length)return toast('لا توجد ملاحظات');
+ const sh=newSheet('الملاحظات',[6,24,17,26,12,12,9,11,34,26,18]),last=10,c={ok:0,short:0,over:0};
+ headerRows(sh,'ملاحظات الجرد','عدد الملاحظات: '+L.length+'   |   عدد الجهات: '+new Set(L.map(n=>n.entity)).size,last);
+ seg(sh,4,NHEAD.map((h,i)=>({from:i,v:h,s:3})),28);sh.freeze=5;sh.printRow=5;
+ L.forEach((n,i)=>{const k=nCalc(n),ss=ST_X[k.st];c[k.st]++;seg(sh,5+i,[{from:0,v:i+1,s:4},{from:1,v:n.entity,s:11},{from:2,v:n.cat,s:4},{from:3,v:n.name,s:11},{from:4,v:num(n.book)??0,s:4},{from:5,v:num(n.actual)??'',s:4},{from:6,v:k.diff??'',s:ss},{from:7,v:ST[k.st],s:ss},{from:8,v:n.notes,s:11},{from:9,v:fmtDate(n.date),s:4},{from:10,v:n.byName,s:4}]);});
+ seg(sh,6+L.length,[{from:0,to:last,v:`الخلاصة: مطابق ${c.ok} — عجز ${c.short} — زيادة ${c.over}`,s:12}],22);
+ dl(buildXlsx([sh],true),'ملاحظات الجرد '+today()+'.xlsx');toast('تم تصدير Excel');};
+$('nPdf').onclick=()=>{const L=notesSorted();if(!L.length)return toast('لا توجد ملاحظات');const c={ok:0,short:0,over:0};L.forEach(n=>c[nCalc(n).st]++);
+ const by=[...new Set(L.map(n=>n.byName).filter(Boolean))],ms=S.committee.members.filter(m=>m.name);
+ const signers=ms.length?ms.map(m=>[m.role==='chair'?'رئيس اللجنة':'عضو اللجنة',memLabel(m),m.sig]):(by.length?by:['']).map(b=>['المسجّل',b,'']);
+ doPrint(`<div class="pg">${phHtml('تاريخ التقرير: '+fmtDate(today()))}<h2>ملاحظات الجرد</h2>
+ <div class="einfo"><span>عدد الملاحظات: ${L.length}</span><span>|</span><span>عدد الجهات: ${new Set(L.map(n=>n.entity)).size}</span>${by.length?`<span>|</span><span>المسجّلون: ${by.map(esc).join('، ')}</span>`:''}</div>
+ <table class="pt"><thead><tr>${NHEAD.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${L.map((n,i)=>{const k=nCalc(n);return `<tr><td>${i+1}</td><td class="tx">${esc(n.entity)}</td><td>${esc(n.cat)}</td><td class="tx">${esc(n.name)}</td><td>${esc(n.book)}</td><td>${esc(n.actual)}</td><td class="p-${k.st}"><span class="n">${k.diff}</span></td><td class="p-${k.st}">${ST[k.st]}</td><td class="tx">${esc(n.notes)}</td><td>${esc(fmtDate(n.date))}</td><td>${esc(n.byName)}</td></tr>`;}).join('')}</tbody></table>
+ <div class="psum">الخلاصة: مطابق ${c.ok} — عجز ${c.short} — زيادة ${c.over}</div>
+ <table class="sig"><tr><th style="width:24%">الصفة</th><th>الاسم</th><th style="width:30%">التوقيع</th></tr>${signers.map(([t,nm,sg])=>`<tr><td>${t}</td><td>${esc(nm)}</td><td>${sigImg(sg)}</td></tr>`).join('')}</table></div>`,'ملاحظات الجرد '+today(),'landscape');};
+$('nMerge').onclick=()=>{const L=nFiltered().filter(n=>!n.merged);if(!L.length)return toast('لا توجد ملاحظات جديدة للإدراج');
+ if(!confirm(`إدراج ${L.length} ملاحظة في الجرد الشامل؟ ستُضاف الأصناف للجهات (وتُنشأ الجهة إن لم تكن موجودة).`))return;
+ let a=0,u=0;L.forEach(n=>{let e=S.entities.find(x=>norm(x.name)===norm(n.entity));if(!e){e=fixEntity({id:uid(),name:n.entity,date:n.date,rows:[]});S.entities.push(e);}if(!e.date&&n.date)e.date=n.date;
+  const r=e.rows.find(x=>norm(x.cat)===norm(n.cat)&&norm(x.name)===norm(n.name));
+  if(r){r.actual=n.actual;if(n.notes&&!r.notes.includes(n.notes))r.notes=r.notes?r.notes+' | '+n.notes:n.notes;r.byName=n.byName;r.updated=n.updated;u++;}
+  else{e.rows.push(cleanRow({cat:n.cat,name:n.name,book:n.book,actual:n.actual,notes:n.notes,byName:n.byName,updated:n.updated}));a++;}n.merged=true;});
+ if(!S.cur)S.cur=S.entities[0].id;save();renderAll();toast(`تم الإدراج: ${a} صنف جديد، و${u} تحديث`);};
+$('nClear').onclick=()=>{const L=nFiltered();if(!L.length)return;if(!confirm(`حذف ${L.length} ملاحظة نهائيًا؟`))return;const ids=new Set(L.map(n=>n.id));S.notes=S.notes.filter(n=>!ids.has(n.id));save();renderNotes();};
+
+/* ================= الوضع ================= */
+const MODEK='jard_mode';let MODE='';try{MODE=localStorage.getItem(MODEK)||'';}catch(e){}
+function applyMode(){document.body.classList.toggle('mode-notes',MODE==='notes');if(MODE==='notes')showTab('notes');}
+$('btnMode').onclick=()=>{$('modePick').hidden=false;};
+$('modePick').addEventListener('click',ev=>{const b=ev.target.closest('button[data-mode]');if(!b)return;MODE=b.dataset.mode;try{localStorage.setItem(MODEK,MODE);}catch(e){}$('modePick').hidden=true;applyMode();if(MODE==='full')showTab('ents');toast(MODE==='notes'?'وضعية الملاحظات':'وضعية الجرد الشامل');});
 
 /* ================= اللجنة ================= */
 function renderCom(force){
@@ -642,7 +791,7 @@ function printFinal(){
 /* ================= الأدوات ================= */
 function renderTools(){$('expList').innerHTML=S.entities.length?S.entities.map(e=>`<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--line);padding:6px 0"><b>${esc(e.name)}</b><div class="btns" style="margin:0">${expBtns(e)}</div></div>`).join(''):'<div class="muted">لا توجد جهات</div>';fillCatSelect($('bkDefCat'),$('bkDefCat').value||'أخرى',false);}
 $('btnXlsAll').onclick=()=>$('btnFinalXls').click();
-$('btnBackup').onclick=()=>{dl(new Blob([JSON.stringify({type:'jard-backup',version:2,exportedAt:new Date().toISOString(),settings:S.settings,committee:S.committee,report:S.report,categories:S.categories,items:S.items,warehouses:S.warehouses,entities:S.entities})],{type:'text/plain;charset=utf-8'}),'حزمة الجرد '+today()+'.txt');toast('تم تصدير الحزمة');};
+$('btnBackup').onclick=()=>{dl(new Blob([JSON.stringify({type:'jard-backup',version:2,exportedAt:new Date().toISOString(),settings:S.settings,committee:S.committee,report:S.report,categories:S.categories,items:S.items,warehouses:S.warehouses,entities:S.entities,notes:S.notes})],{type:'text/plain;charset=utf-8'}),'حزمة الجرد '+today()+'.txt');toast('تم تصدير الحزمة');};
 $('btnWipe').onclick=()=>{if(confirm('سيتم حذف جميع الجهات والأصناف واللجنة والإعدادات من هذا المتصفح. متأكد؟')&&confirm('تأكيد أخير: هل صدّرت نسخة احتياطية؟')){S=blank();save();renderAll();renderCom(true);toast('تم الحذف');}};
 function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=safeName(name);document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);}
 function entityTextBlob(e){return new Blob([JSON.stringify({type:'jard-entity',version:2,exportedAt:new Date().toISOString(),from:ME,committee:S.committee,entity:e},null,1)],{type:'text/plain;charset=utf-8'});}
@@ -650,16 +799,19 @@ function exportText(e){dl(entityTextBlob(e),'جرد '+e.name+'.txt');toast('تم
 async function shareText(e){const f=new File([entityTextBlob(e)],safeName('جرد '+e.name+'.txt'),{type:'text/plain'});try{if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f],title:'جرد '+e.name});else exportText(e);}catch(err){if(err.name!=='AbortError')exportText(e);}}
 
 /* ---- استيراد الملفات النصية والدمج ---- */
-$('impFile').onchange=async ev=>{const out=[];for(const f of ev.target.files){try{const o=JSON.parse((await f.text()).replace(/^﻿/,''));let list;
+async function importFiles(files){const out=[];for(const f of files){try{const o=JSON.parse((await f.text()).replace(/^﻿/,''));let list;
+  if(o.type==='jard-notes'){const r=mergeNotes(o.notes||[]);out.push(`📝 «${f.name}»: أضيفت ${r.added} ملاحظة${r.updated?`، وحُدِّثت ${r.updated}`:''}${r.same?`، ومكررة ${r.same}`:''}`);continue;}
   if(o.type==='jard-entity'){list=[o.entity];if(o.committee)mergeCommittee(o.committee);if(o.org&&!S.settings.hdrR)S.settings.hdrR=o.org;}
   else if(o.type==='jard-backup'){list=o.entities||[];(o.categories||[]).forEach(addCat);(o.items||[]).forEach(i=>addItem(i.cat,i.name));(o.warehouses||[]).forEach(w=>addWh(w));
    if(o.committee)mergeCommittee(o.committee);
    if(o.settings){const st=o.settings;if(st.org&&!st.hdrR)st.hdrR=st.org;['hdrR','hdrL','footer'].forEach(k=>{if(!S.settings[k]&&st[k])S.settings[k]=st[k];});if(!S.settings.logo&&st.logo)Object.assign(S.settings,{logo:st.logo,logoW:st.logoW,logoH:st.logoH});if(st.color&&S.settings.color==='#1f4e79')S.settings.color=st.color;}
+   if(o.notes&&o.notes.length){const r=mergeNotes(o.notes);out.push(`📝 أضيفت ${r.added} ملاحظة`);}
    if(o.report&&!S.report.recs&&!S.report.intro)S.report=Object.assign(DEF_REPORT(),o.report);}
   else throw new Error('الملف ليس ملف جرد');
   list.forEach(en=>{const r=mergeEntity(en);out.push(r.isNew?`✅ «${r.name}»: جهة جديدة أضيفت (${r.added} صنف)`:`🔄 «${r.name}»: أضيف ${r.added} صنف جديد، وحُدِّث ${r.updated}، ودون تغيير ${r.same}`);});
  }catch(err){out.push('❌ '+f.name+': '+(err.message||'ملف غير صالح'));}}
- ev.target.value='';save();renderAll();renderCom(true);$('impRes').textContent=out.join('\n');toast('اكتمل الاستيراد');};
+ save();renderAll();renderCom(true);toast('اكتمل الاستيراد');return out;}
+$('impFile').onchange=async ev=>{const out=await importFiles(ev.target.files);ev.target.value='';$('impRes').textContent=out.join('\n');};
 function mergeCommittee(inc){const C=S.committee;if(!C.decision&&inc.decision)C.decision=inc.decision;
  (inc.members||[]).forEach(m=>{let x=C.members.find(y=>y.id===m.id)||(m.name&&C.members.find(y=>y.name&&norm(y.name)===norm(m.name)));
   if(!x&&m.role==='chair'){x=chair();}
@@ -846,6 +998,7 @@ function exportXlsx(list,fname,withSummary){dl(buildXlsx((withSummary?[summarySh
 /* ================= تشغيل ================= */
 renderAll();save();
 try{const t=localStorage.getItem(KEY+'_tab');if(t&&$('tab-'+t))showTab(t);}catch(e){}
+if(!MODE)$('modePick').hidden=false;else applyMode();
 </script>
 </body>
 </html>
