@@ -92,6 +92,10 @@ body.mode-notes nav.tabs button:not([data-tab=notes]):not([data-tab=set]){displa
 body.mode-notes #curSel,body.mode-notes #hdrMe{display:none}
 .mbtn{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.35)}
 @media (max-width:600px){.mpick{grid-template-columns:1fr}}
+.warnbar{background:#fff3c4;border:2px solid #b07a00;color:#000;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:17px;line-height:1.8}
+.warnbar.red{background:#fbd3cf;border-color:#9b0d0d}
+.warnbar button{margin-top:6px}
+#sendMsg,#pasteMsg{white-space:pre-line;font-size:17px}
 .hint{background:var(--peb);border-radius:8px;padding:10px 14px;font-size:16.5px;color:var(--ink);margin-bottom:10px}
 @media (max-width:760px){
  .filters{grid-template-columns:1fr 1fr}.filters .s{grid-column:1/-1}
@@ -171,6 +175,7 @@ body.mode-notes #curSel,body.mode-notes #hdrMe{display:none}
  <button data-tab="set">⚙ الإعدادات والترويسة</button>
 </nav>
 <main>
+<div class="warnbar" id="viewerWarn" hidden></div>
 <!-- ===== الجهات ===== -->
 <section id="tab-ents">
  <div class="card">
@@ -250,6 +255,7 @@ body.mode-notes #curSel,body.mode-notes #hdrMe{display:none}
   <div class="bigbtns">
    <button class="pri big" id="nSend">📤 إرسال الملاحظات لرئيس اللجنة</button>
    <label class="btn big">📥 استيراد ملفات ملاحظات<input type="file" id="nImp" accept=".txt,.json,text/plain" multiple hidden></label>
+   <button class="big" data-paste="nImpRes">📋 لصق ملاحظات من واتساب</button>
    <button class="big" id="nXls">📊 تصدير Excel</button>
    <button class="big" id="nPdf">🖨 تقرير PDF</button>
   </div>
@@ -338,7 +344,7 @@ body.mode-notes #curSel,body.mode-notes #hdrMe{display:none}
  <div class="card">
   <h3>③ استيراد ملف جرد أو حزمة</h3>
   <p class="muted">رئيس اللجنة يستورد هنا ملفات المندوبين. إذا كانت الجهة موجودة تُضاف إليها الأصناف الجديدة وتُحدَّث المطابقات والتوقيعات، وإذا لم تكن موجودة تُضاف جهة جديدة.</p>
-  <label class="btn pri" style="width:max-content">📥 اختيار ملف للاستيراد<input type="file" id="impFile" accept=".txt,.json,text/plain" multiple hidden></label>
+  <div class="btns"><label class="btn pri">📥 اختيار ملف للاستيراد<input type="file" id="impFile" accept=".txt,.json,text/plain" multiple hidden></label><button data-paste="impRes">📋 لصق نص من واتساب</button></div>
   <div class="imp-res" id="impRes"></div>
  </div>
  <div class="card">
@@ -403,6 +409,25 @@ body.mode-notes #curSel,body.mode-notes #hdrMe{display:none}
   <button data-mode="notes"><i>📝</i><b>وضعية الملاحظات</b><span>تسجيل سريع وبسيط: الجهة، الصنف، الكمية القيدية والفعلية، والملاحظة — ثم إرسالها لرئيس اللجنة</span></button>
   <button data-mode="full"><i>📊</i><b>وضعية الجرد الشامل</b><span>جرد كامل للجهات والمستودعات مع اللجنة والتوقيعات والتقرير النهائي</span></button>
  </div>
+</div></div>
+<div class="modal" id="sendModal" hidden><div class="mbox">
+ <h3 id="sendTitle">إرسال</h3>
+ <div class="muted" id="sendInfo"></div>
+ <div class="bigbtns" style="margin-top:12px">
+  <button class="pri big" id="sendShare">📤 مشاركة مباشرة (واتساب وغيره)</button>
+  <button class="big" id="sendCopy">📋 نسخ كنص ولصقه في واتساب</button>
+  <button class="big" id="sendDl">⬇ تنزيل الملف على الجهاز</button>
+ </div>
+ <div class="hint" id="sendMsg" style="margin-top:12px" hidden></div>
+ <textarea id="sendText" hidden style="min-height:130px;margin-top:8px;font-size:15px"></textarea>
+ <div class="btns"><button class="big" id="sendClose">إغلاق</button></div>
+</div></div>
+<div class="modal" id="pasteModal" hidden><div class="mbox">
+ <h3>📋 لصق نص من واتساب</h3>
+ <div class="muted">افتح رسالة المندوب في واتساب ← اضغط عليها مطولًا ← «نسخ»، ثم اضغط مطولًا داخل المربع ← «لصق».</div>
+ <textarea id="pasteText" style="min-height:170px;margin-top:10px;font-size:15px" placeholder="الصق الرسالة هنا"></textarea>
+ <div class="hint" id="pasteMsg" style="margin-top:10px" hidden></div>
+ <div class="btns"><button class="pri big" id="pasteGo">✅ استيراد</button><button class="big" id="pasteClose">إغلاق</button></div>
 </div></div>
 <datalist id="dlNEnts"></datalist><datalist id="dlNItems"></datalist>
 <datalist id="dlItems"></datalist><datalist id="dlWh"></datalist><datalist id="dlEnts"></datalist>
@@ -635,12 +660,13 @@ function mergeNotes(list){let added=0,updated=0,same=0;list.forEach(n=>{if(!n||!
  S.notes.sort((a,b)=>(b.created||'').localeCompare(a.created||''));return{added,updated,same};}
 $('nImp').onchange=async ev=>{const out=await importFiles(ev.target.files);ev.target.value='';$('nImpRes').textContent=out.join('\n');};
 function notesBlob(L){return new Blob([JSON.stringify({type:'jard-notes',version:1,exportedAt:new Date().toISOString(),from:trimS($('nBy').value),notes:L},null,1)],{type:'text/plain;charset=utf-8'});}
-$('nSend').onclick=async()=>{const L=nFiltered();if(!L.length)return toast('لا توجد ملاحظات للإرسال');
+$('nSend').onclick=()=>{const L=nFiltered();if(!L.length)return toast('لا توجد ملاحظات للإرسال');
  const by=trimS($('nBy').value),ents=[...new Set(L.map(n=>n.entity))];
  const fname=safeName('ملاحظات جرد - '+(ents.length===1?ents[0]:ents.length+' جهات')+(by?' - '+by:'')+' - '+today()+'.txt');
- const blob=notesBlob(L);const f=new File([blob],fname,{type:'text/plain'});
- try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:fname});toast('تم الإرسال');return;}}catch(err){if(err.name==='AbortError')return;}
- dl(blob,fname);toast('تم حفظ ملف الملاحظات — أرسله لرئيس اللجنة');};
+ const obj={type:'jard-notes',version:1,exportedAt:new Date().toISOString(),from:by,notes:L};
+ const res=n=>{const k=nCalc(n);return k.st==='ok'?'مطابق':ST[k.st]+' '+Math.abs(k.diff);};
+ const txt=`📝 ملاحظات جرد${by?' — '+by:''} — ${fmtDate(today())}\nعدد الملاحظات: ${L.length}\n\n`+L.map((n,i)=>`${i+1}) ${n.entity} | ${n.cat} | ${n.name}\n   القيدية: ${n.book} | الفعلية: ${n.actual} | النتيجة: ${res(n)}${n.notes?'\n   ملاحظة: '+n.notes:''}`).join('\n')+jardCode(obj);
+ openSend('📤 إرسال '+L.length+' ملاحظة لرئيس اللجنة',new Blob([JSON.stringify(obj,null,1)],{type:'text/plain;charset=utf-8'}),fname,txt);};
 function notesSorted(){return nFiltered().slice().sort((a,b)=>a.entity.localeCompare(b.entity,'ar')||(a.date||'').localeCompare(b.date||''));}
 const NHEAD=['م','اسم الجهة','نوع الصنف','اسم الصنف','الكمية القيدية','الكمية الفعلية','الفرق','النتيجة','الملاحظات','تاريخ الجرد','المسجّل'];
 $('nXls').onclick=()=>{const L=notesSorted();if(!L.length)return toast('لا توجد ملاحظات');
@@ -794,15 +820,40 @@ function printFinal(){
 /* ================= الأدوات ================= */
 function renderTools(){$('expList').innerHTML=S.entities.length?S.entities.map(e=>`<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--line);padding:6px 0"><b>${esc(e.name)}</b><div class="btns" style="margin:0">${expBtns(e)}</div></div>`).join(''):'<div class="muted">لا توجد جهات</div>';fillCatSelect($('bkDefCat'),$('bkDefCat').value||'أخرى',false);}
 $('btnXlsAll').onclick=()=>$('btnFinalXls').click();
-$('btnBackup').onclick=()=>{dl(new Blob([JSON.stringify({type:'jard-backup',version:2,exportedAt:new Date().toISOString(),settings:S.settings,committee:S.committee,report:S.report,categories:S.categories,items:S.items,warehouses:S.warehouses,entities:S.entities,notes:S.notes})],{type:'text/plain;charset=utf-8'}),'حزمة الجرد '+today()+'.txt');toast('تم تصدير الحزمة');};
+$('btnBackup').onclick=()=>{openSend('📦 الحزمة الكاملة / النسخة الاحتياطية',new Blob([JSON.stringify({type:'jard-backup',version:2,exportedAt:new Date().toISOString(),settings:S.settings,committee:S.committee,report:S.report,categories:S.categories,items:S.items,warehouses:S.warehouses,entities:S.entities,notes:S.notes})],{type:'text/plain;charset=utf-8'}),'حزمة الجرد '+today()+'.txt','','الحزمة كبيرة (تحتوي الشعار والتوقيعات) فتُرسل كملف: مشاركة أو تنزيل.');};
 $('btnWipe').onclick=()=>{if(confirm('سيتم حذف جميع الجهات والأصناف واللجنة والإعدادات من هذا المتصفح. متأكد؟')&&confirm('تأكيد أخير: هل صدّرت نسخة احتياطية؟')){S=blank();save();renderAll();renderCom(true);toast('تم الحذف');}};
 function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=safeName(name);document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);}
 function entityTextBlob(e){return new Blob([JSON.stringify({type:'jard-entity',version:2,exportedAt:new Date().toISOString(),from:ME,committee:S.committee,entity:e},null,1)],{type:'text/plain;charset=utf-8'});}
-function exportText(e){dl(entityTextBlob(e),'جرد '+e.name+'.txt');toast('تم تصدير ملف: جرد '+e.name);}
-async function shareText(e){const f=new File([entityTextBlob(e)],safeName('جرد '+e.name+'.txt'),{type:'text/plain'});try{if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f],title:'جرد '+e.name});else exportText(e);}catch(err){if(err.name!=='AbortError')exportText(e);}}
+function exportText(e){const s=stats(e);const C=JSON.parse(JSON.stringify(S.committee));C.members.forEach(m=>{if(m.id!==ME)m.sig='';});
+ const obj={type:'jard-entity',version:2,exportedAt:new Date().toISOString(),from:ME,committee:C,entity:e};
+ const txt=`📋 جرد: ${e.name} — ${fmtDate(e.date||today())}\nعدد الأصناف: ${s.n} | مطابق: ${s.ok} | عجز: ${s.short} | زيادة: ${s.over} | لم يُجرد: ${s.pending}`+jardCode(obj);
+ openSend('📤 إرسال جرد: '+e.name,entityTextBlob(e),'جرد '+e.name+'.txt',txt);}
+function shareText(e){exportText(e);}
+/* ---- نافذة الإرسال (مشاركة / نسخ نص / تنزيل) ---- */
+let SEND=null;
+function jardCode(o){return '\n\n—— رمز الاستيراد لرئيس اللجنة (لا تعدّله) ——\nJARD1:'+JSON.stringify(o);}
+function canShareFile(){try{return !!(navigator.share&&navigator.canShare&&navigator.canShare({files:[new File(['x'],'a.txt',{type:'text/plain'})]}));}catch(e){return false;}}
+function openSend(title,blob,fname,text,info){SEND={blob,fname:safeName(fname),text};$('sendTitle').textContent=title;$('sendInfo').textContent=info||'اختر طريقة الإرسال المناسبة:';$('sendShare').hidden=!canShareFile();$('sendCopy').hidden=!text;$('sendMsg').hidden=true;$('sendText').hidden=true;$('sendModal').hidden=false;}
+function sendMsg(t){$('sendMsg').textContent=t;$('sendMsg').hidden=false;}
+$('sendClose').onclick=()=>{$('sendModal').hidden=true;};
+$('sendShare').onclick=async()=>{try{await navigator.share({files:[new File([SEND.blob],SEND.fname,{type:'text/plain'})],title:SEND.fname});sendMsg('✅ تمت المشاركة.');}catch(e){if(e.name!=='AbortError')sendMsg('تعذّرت المشاركة من هذا الجهاز — استخدم «نسخ كنص» أو «تنزيل الملف».');}};
+$('sendCopy').onclick=async()=>{const t=SEND.text,ta=$('sendText');ta.value=t;ta.hidden=false;let ok=false;
+ if(t.length>60000)return sendMsg('⚠ النص طويل جدًا لرسالة واتساب — استخدم «مشاركة مباشرة» أو «تنزيل الملف».');
+ try{await navigator.clipboard.writeText(t);ok=true;}catch(e){}
+ if(!ok){ta.focus();ta.select();ta.setSelectionRange(0,t.length);try{ok=document.execCommand('copy');}catch(e){}}
+ sendMsg(ok?'✅ تم النسخ.\nافتح محادثة رئيس اللجنة في واتساب ← اضغط مطولًا في خانة الكتابة ← «لصق» ← إرسال.':'لم يسمح الجهاز بالنسخ التلقائي:\nاضغط مطولًا على النص بالأسفل ← «تحديد الكل» ← «نسخ»، ثم الصقه في واتساب.');};
+$('sendDl').onclick=()=>{dl(SEND.blob,SEND.fname);sendMsg('✅ تم تنزيل الملف: «'+SEND.fname+'»\nتجده في:\n• الآيفون: تطبيق «الملفات» ← «التنزيلات».\n• أندرويد: تطبيق «الملفات» ← مجلد «التنزيلات / Download».\nثم أرسله لرئيس اللجنة في واتساب كمستند (📎 ← مستند).\n\nإذا لم تجد الملف فالأرجح أنك فتحت الأداة من داخل واتساب — استخدم «نسخ كنص».');};
+/* ---- اللصق من واتساب ---- */
+let PASTE_OUT='impRes';
+document.addEventListener('click',ev=>{const b=ev.target.closest('button[data-paste]');if(!b)return;PASTE_OUT=b.dataset.paste;$('pasteText').value='';$('pasteMsg').hidden=true;$('pasteModal').hidden=false;$('pasteText').focus();});
+$('pasteClose').onclick=()=>{$('pasteModal').hidden=true;};
+$('pasteGo').onclick=async()=>{const t=$('pasteText').value;if(!t.trim())return toast('الصق النص أولًا');const out=await importTexts([{name:'نص ملصق',text:t}]);$('pasteMsg').textContent=out.join('\n');$('pasteMsg').hidden=false;$(PASTE_OUT).textContent=out.join('\n');if(!out.some(x=>x.startsWith('❌')))$('pasteText').value='';};
 
 /* ---- استيراد الملفات النصية والدمج ---- */
-async function importFiles(files){const out=[];for(const f of files){try{const o=JSON.parse((await f.text()).replace(/^﻿/,''));let list;
+function parseJard(t){t=String(t).replace(/^﻿/,'');const k=t.indexOf('JARD1:');if(k>=0)t=t.slice(k+6);else{const a=t.indexOf('{"type":"jard');if(a>=0)t=t.slice(a);}const z=t.lastIndexOf('}');if(z>=0)t=t.slice(0,z+1);
+ try{return JSON.parse(t.trim());}catch(e){throw new Error('النص غير مكتمل أو تم تعديله — انسخ الرسالة كاملة');}}
+async function importFiles(files){const arr=[];for(const f of files)arr.push({name:f.name,text:await f.text()});return importTexts(arr);}
+async function importTexts(arr){const out=[];for(const f of arr){try{const o=parseJard(f.text);let list;
   if(o.type==='jard-notes'){const r=mergeNotes(o.notes||[]);out.push(`📝 «${f.name}»: أضيفت ${r.added} ملاحظة${r.updated?`، وحُدِّثت ${r.updated}`:''}${r.same?`، ومكررة ${r.same}`:''}`);continue;}
   if(o.type==='jard-entity'){list=[o.entity];if(o.committee)mergeCommittee(o.committee);if(o.org&&!S.settings.hdrR)S.settings.hdrR=o.org;}
   else if(o.type==='jard-backup'){list=o.entities||[];(o.categories||[]).forEach(addCat);(o.items||[]).forEach(i=>addItem(i.cat,i.name));(o.warehouses||[]).forEach(w=>addWh(w));
@@ -810,7 +861,7 @@ async function importFiles(files){const out=[];for(const f of files){try{const o
    if(o.settings){const st=o.settings;if(st.org&&!st.hdrR)st.hdrR=st.org;['hdrR','hdrL','footer'].forEach(k=>{if(!S.settings[k]&&st[k])S.settings[k]=st[k];});if(!S.settings.logo&&st.logo)Object.assign(S.settings,{logo:st.logo,logoW:st.logoW,logoH:st.logoH});if(st.color&&S.settings.color==='#1f4e79')S.settings.color=st.color;}
    if(o.notes&&o.notes.length){const r=mergeNotes(o.notes);out.push(`📝 أضيفت ${r.added} ملاحظة`);}
    if(o.report&&!S.report.recs&&!S.report.intro)S.report=Object.assign(DEF_REPORT(),o.report);}
-  else throw new Error('الملف ليس ملف جرد');
+  else throw new Error('ليس ملف جرد من هذه الأداة');
   list.forEach(en=>{const r=mergeEntity(en);out.push(r.isNew?`✅ «${r.name}»: جهة جديدة أضيفت (${r.added} صنف)`:`🔄 «${r.name}»: أضيف ${r.added} صنف جديد، وحُدِّث ${r.updated}، ودون تغيير ${r.same}`);});
  }catch(err){out.push('❌ '+f.name+': '+(err.message||'ملف غير صالح'));}}
  save();renderAll();renderCom(true);toast('اكتمل الاستيراد');return out;}
@@ -1002,6 +1053,10 @@ function exportXlsx(list,fname,withSummary){dl(buildXlsx((withSummary?[summarySh
 renderAll();save();
 try{const t=localStorage.getItem(KEY+'_tab');if(t&&$('tab-'+t))showTab(t);}catch(e){}
 if(!MODE)$('modePick').hidden=false;else applyMode();
+(function(){const w=$('viewerWarn');let okStore=true;try{localStorage.setItem('jard_t','1');okStore=localStorage.getItem('jard_t')==='1';}catch(e){okStore=false;}
+ const ua=navigator.userAgent||'',inApp=/WhatsApp|FBAN|FBAV|Instagram|Line\/|; wv\)/i.test(ua);
+ if(!okStore){w.className='warnbar red';w.innerHTML='⚠ <b>تنبيه مهم:</b> الأداة مفتوحة في عارض لا يحفظ البيانات (مثل عارض واتساب)، وستضيع بياناتك عند الإغلاق.<br>افتح الأداة من متصفح الجوال <b>Safari</b> أو <b>Chrome</b>.';w.hidden=false;}
+ else if(inApp){w.innerHTML='💡 يبدو أنك فتحت الأداة من داخل تطبيق (مثل واتساب). قد لا يعمل تنزيل الملفات هنا — عند الإرسال اختر <b>«نسخ كنص ولصقه في واتساب»</b>، والأفضل فتح الأداة من متصفح <b>Safari</b> أو <b>Chrome</b>.';w.hidden=false;}})();
 </script>
 </body>
 </html>
