@@ -1,0 +1,4 @@
+Flask>=2.2
+Flask-SQLAlchemy>=3.0
+# مطلوب فقط عند استخدام MySQL (مثبّت مسبقًا على PythonAnywhere)
+mysqlclient; platform_system != "Windows"

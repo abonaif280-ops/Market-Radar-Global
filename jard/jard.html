@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>نظام الجرد الميداني</title>
+<title>أداة الجرد</title>
 <style>
 :root{color-scheme:light;--bg:#eef1f5;--card:#fff;--ink:#000;--mut:#1a1a1a;--line:#9aa4b2;--pri:#123a63;--pri2:#123a63;--ok:#0b5d24;--okb:#cdeed7;--sh:#9b0d0d;--shb:#fbd3cf;--ov:#6b4700;--ovb:#ffe9a8;--pe:#222;--peb:#e3e7ec}
 *{box-sizing:border-box}
@@ -96,6 +96,10 @@ body.mode-notes #curSel,body.mode-notes #hdrMe{display:none}
 .warnbar.red{background:#fbd3cf;border-color:#9b0d0d}
 .warnbar button{margin-top:6px}
 #sendMsg,#pasteMsg{white-space:pre-line;font-size:17px}
+.svlink{color:#fff;text-decoration:none;border:2px solid rgba(255,255,255,.4);padding:4px 10px;border-radius:8px;font-size:15px;margin-inline-start:4px;white-space:nowrap}
+body.sv #meCard,body.sv #btnWipeCard,body.sv #nSend,body.sv .mem button[data-ms=del],body.sv #btnBackupCard{display:none!important}
+body.role-member nav.tabs button[data-tab=set],body.role-member nav.tabs button[data-tab=rep],body.role-member #bkCard,body.role-member button[data-a=del],body.role-member #nMerge,body.role-member #nClear,body.role-member #btnAddMem,body.role-member #expAllBtns{display:none!important}
+.mem input:disabled{background:#eef1f5;border-color:#c5ccd6}
 .hint{background:var(--peb);border-radius:8px;padding:10px 14px;font-size:16.5px;color:var(--ink);margin-bottom:10px}
 @media (max-width:760px){
  .filters{grid-template-columns:1fr 1fr}.filters .s{grid-column:1/-1}
@@ -162,8 +166,8 @@ body.mode-notes #curSel,body.mode-notes #hdrMe{display:none}
 </head>
 <body>
 <header class="top">
- <div class="brand"><img id="hdrLogo" alt="" hidden><div><h1>نظام الجرد الميداني</h1><small id="hdrOrg"></small></div></div>
- <div class="hdr-r"><button class="sm mbtn" id="btnMode">🔄 تغيير الوضع</button><span class="me" id="hdrMe"></span><select id="curSel" aria-label="الجهة الحالية"></select></div>
+ <div class="brand"><img id="hdrLogo" alt="" hidden><div><h1>أداة الجرد</h1><small id="hdrOrg"></small></div></div>
+ <div class="hdr-r"><span class="me" id="svStat" hidden></span><span id="svLinks" hidden></span><button class="sm mbtn" id="btnMode">🔄 تغيير الوضع</button><span class="me" id="hdrMe"></span><select id="curSel" aria-label="الجهة الحالية"></select></div>
 </header>
 <nav class="tabs">
  <button data-tab="ents" class="on">🏢 الجهات</button>
@@ -273,7 +277,7 @@ body.mode-notes #curSel,body.mode-notes #hdrMe{display:none}
 
 <!-- ===== اللجنة ===== -->
 <section id="tab-com" hidden>
- <div class="card">
+ <div class="card" id="meCard">
   <h3>من يستخدم هذا الجهاز؟</h3>
   <div class="hint">اختر اسمك، وكل مطابقة تسجلها تُنسب إليك في التقارير. هذا الاختيار خاص بهذا الجهاز ولا يُنقل مع الملفات.</div>
   <label style="max-width:360px"><select id="meSel"></select></label>
@@ -317,7 +321,7 @@ body.mode-notes #curSel,body.mode-notes #hdrMe{display:none}
 
 <!-- ===== استيراد وتصدير ===== -->
 <section id="tab-tools" hidden>
- <div class="card">
+ <div class="card" id="bkCard">
   <h3>① استيراد الكميات القيدية من Excel أو CSV</h3>
   <p class="muted">ارفع ملف القيود. الأداة تتعرف على الأعمدة تلقائيًا (الجهة، النوع، الصنف، الرقم التسلسلي، المستودع، الكمية)، ثم تراجعها أنت قبل الاستيراد. يمكن أن تكون كل جهة في ورقة مستقلة.</p>
   <div class="btns"><label class="btn pri">📥 اختيار ملف Excel / CSV<input type="file" id="bkFile" accept=".xlsx,.xlsm,.csv,.txt" hidden></label><button id="btnTpl">⬇ تحميل نموذج Excel للتعبئة</button></div>
@@ -336,7 +340,7 @@ body.mode-notes #curSel,body.mode-notes #hdrMe{display:none}
   </div>
   <div class="imp-res" id="bkRes"></div>
  </div>
- <div class="card">
+ <div class="card" id="btnBackupCard">
   <h3>② حزمة العمل للمندوبين</h3>
   <p class="muted">بعد إدخال الجهات والقيود والترويسة واللجنة، صدّر الحزمة وأرسلها للمندوبين ليستوردوها في أجهزتهم. تُستخدم أيضًا نسخةً احتياطية.</p>
   <div class="btns"><button class="pri" id="btnBackup">📦 تصدير الحزمة الكاملة / نسخة احتياطية</button></div>
@@ -350,9 +354,9 @@ body.mode-notes #curSel,body.mode-notes #hdrMe{display:none}
  <div class="card">
   <h3>تصدير جهة واحدة</h3>
   <div id="expList"></div>
-  <div class="btns"><button id="btnXlsAll">📊 Excel شامل لجميع الجهات</button><button id="btnPdfAll">🖨 محاضر جرد جميع الجهات (PDF)</button></div>
+  <div class="btns" id="expAllBtns"><button id="btnXlsAll">📊 Excel شامل لجميع الجهات</button><button id="btnPdfAll">🖨 محاضر جرد جميع الجهات (PDF)</button></div>
  </div>
- <div class="card">
+ <div class="card" id="btnWipeCard">
   <h3>حذف البيانات</h3>
   <button class="dan" id="btnWipe">🗑 حذف جميع البيانات من هذا المتصفح</button>
  </div>
@@ -406,7 +410,7 @@ body.mode-notes #curSel,body.mode-notes #hdrMe{display:none}
  <h3>مرحبًا بك — اختر طريقة العمل</h3>
  <div class="muted">يمكنك التغيير لاحقًا من زر «🔄 تغيير الوضع» أعلى الشاشة.</div>
  <div class="mpick">
-  <button data-mode="notes"><i>📝</i><b>وضعية الملاحظات</b><span>تسجيل سريع وبسيط: الجهة، الصنف، الكمية القيدية والفعلية، والملاحظة — ثم إرسالها لرئيس اللجنة</span></button>
+  <button data-mode="notes"><i>📝</i><b>وضعية الملاحظات</b><span id="mpNotesTxt">تسجيل سريع وبسيط: الجهة، الصنف، الكمية القيدية والفعلية، والملاحظة — ثم إرسالها لرئيس اللجنة</span></button>
   <button data-mode="full"><i>📊</i><b>وضعية الجرد الشامل</b><span>جرد كامل للجهات والمستودعات مع اللجنة والتوقيعات والتقرير النهائي</span></button>
  </div>
 </div></div>
@@ -455,8 +459,10 @@ function hijri(d){try{return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqur
 function fmtDate(d){if(!d)return '';const p=d.split('-');if(p.length<3)return d;const g=p[2]+'/'+p[1]+'/'+p[0];const h=hijri(d);return h?h+' الموافق '+g+'م':g+'م';}
 function cleanRow(r){return{id:r.id||uid(),cat:trimS(r.cat),name:trimS(r.name),serial:trimS(r.serial),wh:trimS(r.wh),book:r.book==null||r.book===''?'0':String(r.book),actual:r.actual==null?'':String(r.actual),notes:String(r.notes||''),updated:r.updated||'',by:r.by||'',byName:r.byName||'',at:r.at||''};}
 function fixEntity(e){e.id=e.id||uid();e.name=trimS(e.name);e.location=e.location||'';e.rep=e.rep||'';e.phone=e.phone||'';e.repSig=e.repSig||'';e.date=e.date||'';e.warehouses=e.warehouses||[];e.delegates=e.delegates||[];e.notes=e.notes||'';e.rows=(e.rows||[]).map(cleanRow);return e;}
+function normalize(o){const b=blank();const s=Object.assign(b,o);s.settings=Object.assign(blank().settings,o.settings||{});s.report=Object.assign(DEF_REPORT(),o.report||{});s.committee=Object.assign(blank().committee,o.committee||{});if(!s.categories)s.categories=DEFAULT_CATS.slice();s.items=s.items||[];s.warehouses=s.warehouses||[];s.entities=(s.entities||[]).map(fixEntity);s.notes=s.notes||[];return s;}
 function load(){
  const b=blank();
+ if(SV){try{const c=JSON.parse(localStorage.getItem(SKEY)||'null');if(c&&c.S){SYNC.base=c.base||null;SYNC.version=c.version||0;SYNC.cacheUid=c.uid||'';SVME=c.me||null;return normalize(c.S);}}catch(e){}return b;}
  try{const t=localStorage.getItem(KEY);if(t){const o=JSON.parse(t);const s=Object.assign(b,o);s.settings=Object.assign(blank().settings,o.settings||{});s.report=Object.assign(DEF_REPORT(),o.report||{});s.committee=Object.assign(blank().committee,o.committee||{});s.entities=(s.entities||[]).map(fixEntity);s.notes=s.notes||[];return s;}}catch(e){}
  try{const t=localStorage.getItem(OLDKEY);if(t){const o=JSON.parse(t);// ترحيل بيانات النسخة الأولى
   b.settings.hdrR=(o.settings&&o.settings.org)||'';if(o.settings&&o.settings.logo)Object.assign(b.settings,{logo:o.settings.logo,logoW:o.settings.logoW,logoH:o.settings.logoH});
@@ -464,9 +470,11 @@ function load(){
   (o.entities||[]).forEach(e=>{if(e.chairman&&!b.committee.members[0].name)b.committee.members[0].name=e.chairman;(e.members||[]).forEach(m=>{if(!b.committee.members.some(x=>norm(x.name)===norm(m)))b.committee.members.push({id:uid(),role:'member',name:m,rank:'',sig:'',sigAt:''});});delete e.chairman;delete e.members;b.entities.push(fixEntity(e));});
   b.cur=o.cur||null;return b;}}catch(e){}
  return b;}
+const SV=!!window.JARD_SERVER,SKEY='jard_srv_cache';let SVME=null;
+const SYNC={base:null,version:0,busy:false,timer:null,retry:null,cacheUid:''};
 let S=load();
 let ME='';try{ME=localStorage.getItem(MEKEY)||'';}catch(e){}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast('⚠ تعذّر الحفظ في المتصفح — صدّر نسخة احتياطية الآن');}}
+function save(){if(SV){svCache();svSched();return;}try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast('⚠ تعذّر الحفظ في المتصفح — صدّر نسخة احتياطية الآن');}}
 function calc(r){const b=num(r.book)||0,a=num(r.actual);if(a===null)return{diff:null,st:'pending'};const d=Math.round((a-b)*1000)/1000;return{diff:d,st:d===0?'ok':d<0?'short':'over'};}
 const fmtDiff=d=>d===null?'—':`<span class="n">${d>0?'+':''}${d}</span>`;
 const r3=x=>Math.round(x*1000)/1000;
@@ -484,7 +492,7 @@ const mem=id=>S.committee.members.find(m=>m.id===id);
 const memLabel=m=>m?((m.rank?m.rank+' / ':'')+(m.name||'')):'';
 const roleLabel=m=>m.role==='chair'?'رئيس اللجنة':'مندوب';
 function entDelegates(e){return e.delegates.map(mem).filter(Boolean);}
-function stamp(r){r.updated=new Date().toISOString();const m=mem(ME);if(num(r.actual)!==null){r.by=ME||'';r.byName=m?memLabel(m):(r.byName||'');r.at=r.updated;}}
+function stamp(r){r.updated=new Date().toISOString();const m=mem(ME);if(num(r.actual)!==null){r.by=ME||'';r.byName=m?memLabel(m):(SVME?((SVME.rank?SVME.rank+' / ':'')+SVME.name):(r.byName||''));r.at=r.updated;}}
 
 /* ================= التبويبات ================= */
 const TABS=['ents','inv','notes','com','rep','tools','set'];
@@ -493,7 +501,7 @@ function showTab(t){document.querySelectorAll('nav.tabs button').forEach(b=>b.cl
 $('curSel').onchange=e=>{S.cur=e.target.value||null;save();renderAll();if(S.cur)showTab('inv');};
 function renderAll(){renderHeader();renderEnts();renderInv();renderNotes();renderCom();renderRep();renderTools();renderSet();}
 function renderHeader(){
- const o=S.settings;$('hdrOrg').textContent=lines(o.hdrR).slice(-1)[0]||'';const l=$('hdrLogo');l.hidden=!o.logo;if(o.logo)l.src=o.logo;
+ const o=S.settings;$('hdrOrg').textContent='';$('hdrLogo').hidden=true;
  const m=mem(ME);$('hdrMe').textContent=m?'👤 '+(m.name||roleLabel(m)):'👤 لم يُحدَّد المستخدم';
  $('curSel').innerHTML='<option value="">— اختر الجهة —</option>'+S.entities.map(e=>`<option value="${e.id}"${e.id===S.cur?' selected':''}>${esc(e.name)}</option>`).join('');
  $('dlEnts').innerHTML=S.entities.map(e=>`<option value="${esc(e.name)}">`).join('');
@@ -705,16 +713,17 @@ function renderCom(force){
  $('meSel').innerHTML='<option value="">— اختر —</option>'+ms.map(m=>`<option value="${m.id}"${m.id===ME?' selected':''}>${esc(roleLabel(m)+': '+(m.name||'(بدون اسم)'))}</option>`).join('');
  if(document.activeElement!==$('cDecision'))$('cDecision').value=S.committee.decision||'';
  if(!force&&$('memList').contains(document.activeElement))return;
- $('memList').innerHTML=ms.map(m=>`<div class="mem" data-m="${m.id}">
-  <label>${m.role==='chair'?'<b>رئيس اللجنة</b>':'مندوب'} — الاسم<input data-k="name" value="${esc(m.name)}"></label>
-  <label>الرتبة / الوظيفة<input data-k="rank" value="${esc(m.rank)}"></label>
+ const canEd=m=>!SV||(SVME&&(SVME.full||m.id===ME));
+ $('memList').innerHTML=(SV&&!ms.length?'<div class="muted">لا يوجد أعضاء بعد — يضيفهم مدير النظام من صفحة «المستخدمون».</div>':'')+ms.map(m=>`<div class="mem" data-m="${m.id}">
+  <label>${m.role==='chair'?'<b>رئيس اللجنة</b>':'مندوب'} — الاسم<input data-k="name" value="${esc(m.name)}"${canEd(m)?'':' disabled'}></label>
+  <label>الرتبة / الوظيفة<input data-k="rank" value="${esc(m.rank)}"${canEd(m)?'':' disabled'}></label>
   <div class="sigbox">${m.sig?`<img src="${m.sig}" alt="توقيع">`:'<span class="muted">لم يوقّع</span>'}</div>
-  <button class="sm" data-ms="sig">✍ ${m.sig?'إعادة التوقيع':'توقيع'}</button>
+  ${canEd(m)?`<button class="sm" data-ms="sig">✍ ${m.sig?'إعادة التوقيع':'توقيع'}</button>`:'<span></span>'}
   ${m.role==='chair'?'<span></span>':'<button class="sm dan" data-ms="del">🗑</button>'}</div>`).join('');
 }
 $('meSel').onchange=()=>{ME=$('meSel').value;try{localStorage.setItem(MEKEY,ME);}catch(e){}renderHeader();toast('تم تحديد مستخدم الجهاز');};
 $('cDecision').addEventListener('change',()=>{S.committee.decision=$('cDecision').value.trim();save();});
-$('btnAddMem').onclick=()=>{S.committee.members.push({id:uid(),role:'member',name:'',rank:'',sig:'',sigAt:''});save();renderAll();renderCom(true);const ins=$('memList').querySelectorAll('input[data-k=name]');ins[ins.length-1].focus();};
+$('btnAddMem').onclick=()=>{if(SV){location.href='users';return;}S.committee.members.push({id:uid(),role:'member',name:'',rank:'',sig:'',sigAt:''});save();renderAll();renderCom(true);const ins=$('memList').querySelectorAll('input[data-k=name]');ins[ins.length-1].focus();};
 $('memList').addEventListener('change',ev=>{const i=ev.target.closest('input[data-k]');if(!i)return;const m=mem(i.closest('.mem').dataset.m);m[i.dataset.k]=trimS(i.value);save();renderHeader();renderCom();renderEnts();});
 $('memList').addEventListener('click',ev=>{const b=ev.target.closest('button[data-ms]');if(!b)return;const m=mem(b.closest('.mem').dataset.m);
  if(b.dataset.ms==='sig')openSig('توقيع '+roleLabel(m)+(m.name?': '+m.name:''),u=>{m.sig=u;m.sigAt=new Date().toISOString();save();renderAll();renderCom(true);toast('تم حفظ التوقيع');});
@@ -866,7 +875,7 @@ async function importTexts(arr){const out=[];for(const f of arr){try{const o=par
  }catch(err){out.push('❌ '+f.name+': '+(err.message||'ملف غير صالح'));}}
  save();renderAll();renderCom(true);toast('اكتمل الاستيراد');return out;}
 $('impFile').onchange=async ev=>{const out=await importFiles(ev.target.files);ev.target.value='';$('impRes').textContent=out.join('\n');};
-function mergeCommittee(inc){const C=S.committee;if(!C.decision&&inc.decision)C.decision=inc.decision;
+function mergeCommittee(inc){const C=S.committee;if(!C.decision&&inc.decision)C.decision=inc.decision;if(SV)return;
  (inc.members||[]).forEach(m=>{let x=C.members.find(y=>y.id===m.id)||(m.name&&C.members.find(y=>y.name&&norm(y.name)===norm(m.name)));
   if(!x&&m.role==='chair'){x=chair();}
   if(!x){C.members.push(Object.assign({},m));return;}
@@ -1049,14 +1058,63 @@ function buildXlsx(sheets,withLogo){
  return zip(files);}
 function exportXlsx(list,fname,withSummary){dl(buildXlsx((withSummary?[summarySheet(list)]:[]).concat(list.map(entitySheet)),true),fname);toast('تم تصدير: '+fname);}
 
+/* ================= المزامنة مع الخادم ================= */
+function svCache(){try{localStorage.setItem(SKEY,JSON.stringify({uid:SVME?SVME.id:SYNC.cacheUid,me:SVME,S,base:SYNC.base,version:SYNC.version}));}catch(e){}}
+function snap(){const o={kv:{settings:JSON.stringify(S.settings),report:JSON.stringify(S.report),categories:JSON.stringify(S.categories),warehouses:JSON.stringify(S.warehouses),decision:JSON.stringify(S.committee.decision||'')},members:{},entities:{},rows:{},pos:{},notes:{},items:{}};
+ S.committee.members.forEach(m=>o.members[m.id]=JSON.stringify({name:m.name||'',rank:m.rank||'',sig:m.sig||'',sigAt:m.sigAt||''}));
+ S.entities.forEach(e=>{const x=Object.assign({},e);delete x.rows;o.entities[e.id]=JSON.stringify(x);e.rows.forEach((r,i)=>{o.rows[r.id]=JSON.stringify(Object.assign({},r,{entity_id:e.id}));o.pos[r.id]=i;});});
+ S.notes.forEach(n=>o.notes[n.id]=JSON.stringify(n));
+ S.items.forEach(it=>o.items[it.cat+'\u0001'+it.name]=JSON.stringify({cat:it.cat,name:it.name}));return o;}
+function sdiff(a,b){if(!a)return null;const d={kv:{},members:[],entities:{up:[],del:[]},rows:{up:[],del:[]},notes:{up:[],del:[]},items:{up:[],del:[]}};let n=0;
+ for(const k in b.kv)if(b.kv[k]!==a.kv[k]){d.kv[k]=JSON.parse(b.kv[k]);n++;}
+ for(const id in b.members)if(b.members[id]!==a.members[id]){d.members.push(Object.assign({id},JSON.parse(b.members[id])));n++;}
+ for(const c of ['entities','rows','notes','items']){for(const id in b[c])if(b[c][id]!==a[c][id]){const v=JSON.parse(b[c][id]);if(c==='rows')v.pos=b.pos[id];d[c].up.push(v);n++;}
+  for(const id in a[c])if(!(id in b[c])){d[c].del.push(c==='items'?JSON.parse(a[c][id]):id);n++;}}
+ return n?d:null;}
+async function api(method,url,body){let r;try{r=await fetch(url,{method,headers:{'Content-Type':'application/json','X-Jard':'1'},body:body?JSON.stringify(body):undefined,credentials:'same-origin',cache:'no-store'});}catch(e){const er=new Error('net');er.net=true;throw er;}
+ if(r.status===401){const e=new Error('auth');e.auth=true;throw e;}if(!r.ok)throw new Error('http '+r.status);return r.json();}
+function svStatus(st){const el=$('svStat');el.hidden=false;el.textContent={ok:'✅ محفوظ',saving:'⏳ جاري الحفظ…',off:'📴 بدون اتصال — يُحفظ تلقائيًا عند عودة الشبكة'}[st]||st;el.style.background=st==='off'?'#9b0d0d':st==='saving'?'rgba(255,191,71,.35)':'rgba(255,255,255,.18)';}
+function svSched(){clearTimeout(SYNC.timer);svStatus('saving');SYNC.timer=setTimeout(svPush,600);}
+async function svPush(){if(SYNC.busy){svSched();return;}const cur=snap(),d=sdiff(SYNC.base,cur);if(!d){svStatus('ok');return;}
+ SYNC.busy=true;svStatus('saving');let pull=false;
+ try{const r=await api('POST','api/sync',d);const prev=SYNC.version;SYNC.base=cur;SYNC.version=r.version;svCache();
+  if(r.denied&&r.denied.length){toast('⚠ بعض التعديلات ليست ضمن صلاحيتك ولم تُحفظ');pull=true;}else if(prev&&r.version>prev+1)pull=true;
+  svStatus('ok');}
+ catch(e){if(e.auth)return svLogin();svStatus('off');clearTimeout(SYNC.retry);SYNC.retry=setTimeout(svPush,15000);}
+ finally{SYNC.busy=false;}
+ if(pull||!SVME)svPull(true).catch(()=>{});}
+function svBusyUI(){const a=document.activeElement;if(a&&a.closest&&a.closest('main')&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))return true;return !$('sigModal').hidden||!$('sendModal').hidden||!$('pasteModal').hidden||!$('modePick').hidden;}
+async function svPull(force){if(!force&&svBusyUI())return;const st=await api('GET','api/state');if(sdiff(SYNC.base,snap())&&!force)return svPush();svApply(st);}
+function svApply(st){SVME=st.me;ME=String(st.me.id);const keep=S.cur;
+ S=normalize({v:2,settings:st.settings||{},committee:{decision:st.decision||'',members:st.members||[]},categories:st.categories,warehouses:st.warehouses,items:st.items,entities:st.entities,notes:st.notes,report:st.report||{},cur:keep});
+ if(!S.entities.some(e=>e.id===S.cur))S.cur=S.entities.length?S.entities[0].id:null;
+ SYNC.base=snap();SYNC.version=st.version;svCache();svRole();renderAll();renderCom(true);}
+function svRole(){document.body.classList.add('sv');document.body.classList.toggle('role-member',!SVME.full);
+ $('hdrMe').textContent='👤 '+((SVME.rank?SVME.rank+' / ':'')+SVME.name);
+ const L=$('svLinks');L.hidden=false;L.innerHTML=(SVME.admin?'<a class="svlink" href="users">👥 المستخدمون</a>':'')+'<a class="svlink" href="password">🔑 كلمة المرور</a><a class="svlink" href="logout">خروج</a>';
+ $('btnAddMem').textContent='👥 إدارة المستخدمين (إضافة / إيقاف)';$('btnAddMem').hidden=!SVME.admin;
+ const w=$('viewerWarn');if(SVME.defaultPw){w.className='warnbar red';w.innerHTML='⚠ أنت تستخدم كلمة المرور الافتراضية. <a href="password">غيّرها الآن</a> لحماية البيانات.';w.hidden=false;}}
+function svLogin(){svStatus('off');location.href='login';}
+async function svPoll(){if(document.hidden||SYNC.busy)return;try{if(sdiff(SYNC.base,snap()))return svPush();const r=await api('GET','api/me');if(!SVME||r.id!==SVME.id||r.version!==SYNC.version)await svPull(!SVME);else svStatus('ok');}catch(e){if(e.auth)return svLogin();svStatus('off');}}
+async function svInit(){svStatus('saving');document.body.classList.add('sv');if(SVME){ME=String(SVME.id);svRole();renderAll();renderCom(true);}
+ $('btnPdfAll').closest('.card').querySelector('h3').textContent='تصدير';
+ try{const me=await api('GET','api/me');
+  if(SYNC.cacheUid&&SYNC.cacheUid!==me.id){SYNC.base=null;}
+  if(SYNC.base&&sdiff(SYNC.base,snap()))await svPush();
+  svApply(await api('GET','api/state'));svStatus('ok');}
+ catch(e){if(e.auth)return svLogin();svStatus('off');if(S.entities.length||S.notes.length)toast('📴 لا يوجد اتصال — تعمل على آخر نسخة محفوظة في الجهاز');}
+ setInterval(svPoll,20000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)svPoll();});window.addEventListener('online',()=>svPoll());
+ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(r=>{if(r.active)r.active.postMessage('refresh');}).catch(()=>{});}
+
 /* ================= تشغيل ================= */
-renderAll();save();
+renderAll();if(SV)svInit();else save();
 try{const t=localStorage.getItem(KEY+'_tab');if(t&&$('tab-'+t))showTab(t);}catch(e){}
+if(SV)$('mpNotesTxt').textContent='تسجيل سريع وبسيط: الجهة، الصنف، الكمية القيدية والفعلية، والملاحظة — وتُحفظ مباشرة ويراها رئيس اللجنة';
 if(!MODE)$('modePick').hidden=false;else applyMode();
 (function(){const w=$('viewerWarn');let okStore=true;try{localStorage.setItem('jard_t','1');okStore=localStorage.getItem('jard_t')==='1';}catch(e){okStore=false;}
  const ua=navigator.userAgent||'',inApp=/WhatsApp|FBAN|FBAV|Instagram|Line\/|; wv\)/i.test(ua);
  if(!okStore){w.className='warnbar red';w.innerHTML='⚠ <b>تنبيه مهم:</b> الأداة مفتوحة في عارض لا يحفظ البيانات (مثل عارض واتساب)، وستضيع بياناتك عند الإغلاق.<br>افتح الأداة من متصفح الجوال <b>Safari</b> أو <b>Chrome</b>.';w.hidden=false;}
- else if(inApp){w.innerHTML='💡 يبدو أنك فتحت الأداة من داخل تطبيق (مثل واتساب). قد لا يعمل تنزيل الملفات هنا — عند الإرسال اختر <b>«نسخ كنص ولصقه في واتساب»</b>، والأفضل فتح الأداة من متصفح <b>Safari</b> أو <b>Chrome</b>.';w.hidden=false;}})();
+ else if(inApp&&!SV){w.innerHTML='💡 يبدو أنك فتحت الأداة من داخل تطبيق (مثل واتساب). قد لا يعمل تنزيل الملفات هنا — عند الإرسال اختر <b>«نسخ كنص ولصقه في واتساب»</b>، والأفضل فتح الأداة من متصفح <b>Safari</b> أو <b>Chrome</b>.';w.hidden=false;}})();
 </script>
 </body>
 </html>

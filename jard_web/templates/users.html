@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block header %}<header><h1>أداة الجرد — المستخدمون</h1><div style="display:flex;gap:8px;flex-wrap:wrap"><a href="{{ url_for('backup') }}">💾 نسخة احتياطية</a><a href="{{ url_for('password') }}">🔑 كلمة المرور</a><a href="{{ url_for('index') }}">↩ العودة للأداة</a></div></header>{% endblock %}
+{% block body %}
+{% if u.default_pw %}<div class="warn">⚠ حساب المدير يستخدم كلمة المرور الافتراضية <b dir="ltr">admin123</b>. <a href="{{ url_for('password') }}">غيّرها الآن</a> لأن الموقع متاح على الإنترنت.</div>{% endif %}
+<div class="card">
+ <h2>➕ إضافة مستخدم</h2>
+ <form method="post">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="act" value="add">
+  <div class="grid">
+   <label>اسم المستخدم (إنجليزي)<input name="username" required dir="ltr" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="saad"></label>
+   <label>كلمة المرور (6 أحرف على الأقل)<input name="password" required minlength="6" dir="ltr"></label>
+   <label>الاسم الكامل<input name="name" placeholder="سعد العتيبي"></label>
+   <label>الرتبة / الوظيفة<input name="rank" placeholder="رائد"></label>
+   <label>الصلاحية<select name="role"><option value="member">مندوب</option><option value="chair">رئيس اللجنة</option><option value="admin">مدير النظام</option></select></label>
+  </div>
+  <button class="pri">➕ إضافة</button>
+ </form>
+ <p class="muted">• <b>مدير النظام</b>: يدير المستخدمين وله كل الصلاحيات، ولا يظهر في توقيعات اللجنة.<br>• <b>رئيس اللجنة</b>: كل صلاحيات البيانات والتقرير النهائي (رئيس واحد فقط).<br>• <b>مندوب</b>: يسجّل الجرد والملاحظات ولا يحذف بيانات غيره.</p>
+</div>
+<div class="card">
+ <h2>المستخدمون ({{ users|length }})</h2>
+ <table>
+  <thead><tr><th>اسم المستخدم</th><th>الاسم والرتبة والصلاحية</th><th>الحالة</th><th>آخر دخول</th><th>كلمة مرور جديدة</th><th></th></tr></thead>
+  <tbody>
+  {% for x in users %}
+  <tr class="{{ '' if x.active else 'off' }}">
+   <td data-l="اسم المستخدم" dir="ltr"><b>{{ x.username }}</b></td>
+   <td data-l="البيانات">
+    <form method="post" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;justify-content:center">
+     <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="act" value="edit"><input type="hidden" name="id" value="{{ x.id }}">
+     <input name="name" value="{{ x.name }}" placeholder="الاسم" style="max-width:190px">
+     <input name="rank" value="{{ x.rank }}" placeholder="الرتبة" style="max-width:120px">
+     <select name="role" style="max-width:150px">{% for k,v in ROLE_LABELS.items() %}<option value="{{k}}" {{ 'selected' if x.role==k }}>{{v}}</option>{% endfor %}</select>
+     <button class="sm">حفظ</button>
+    </form>
+   </td>
+   <td data-l="الحالة"><span class="badge {{ 'a' if x.role=='admin' else ('c' if x.role=='chair' else '') }}">{{ x.role_label }}</span><br>{{ 'نشط' if x.active else 'موقوف' }}</td>
+   <td data-l="آخر دخول" dir="ltr">{{ x.last_login.strftime('%Y-%m-%d %H:%M') if x.last_login else '—' }}</td>
+   <td data-l="كلمة مرور جديدة">
+    <form method="post" style="display:flex;gap:6px;justify-content:center">
+     <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="act" value="reset"><input type="hidden" name="id" value="{{ x.id }}">
+     <input name="password" minlength="6" required dir="ltr" placeholder="••••••" style="max-width:140px"><button class="sm">تغيير</button>
+    </form>
+   </td>
+   <td data-l="">
+    {% if x.id != u.id %}
+    <form method="post" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="act" value="toggle"><input type="hidden" name="id" value="{{ x.id }}"><button class="sm">{{ 'إيقاف' if x.active else 'تفعيل' }}</button></form>
+    <form method="post" style="display:inline" onsubmit="return confirm('حذف المستخدم {{ x.username }} نهائيًا؟')"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="act" value="delete"><input type="hidden" name="id" value="{{ x.id }}"><button class="sm dan">حذف</button></form>
+    {% else %}<span class="muted">(حسابك)</span>{% endif %}
+   </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+ </table>
+</div>
+<div class="card">
+ <h2>سجل العمليات (آخر 60)</h2>
+ <table><thead><tr><th>الوقت (UTC)</th><th>المستخدم</th><th>العملية</th><th>التفاصيل</th></tr></thead><tbody>
+ {% for l in logs %}<tr><td data-l="الوقت" dir="ltr">{{ l.at.strftime('%Y-%m-%d %H:%M') }}</td><td data-l="المستخدم" dir="ltr">{{ l.username }}</td><td data-l="العملية">{{ {'login':'دخول','login_failed':'محاولة دخول فاشلة','sync':'حفظ بيانات','password_changed':'تغيير كلمة المرور','user_add':'إضافة مستخدم','user_edit':'تعديل مستخدم','user_reset_pw':'تغيير كلمة مرور مستخدم','user_toggle':'إيقاف/تفعيل','user_delete':'حذف مستخدم','backup':'نسخة احتياطية'}.get(l.action,l.action) }}</td><td data-l="التفاصيل">{{ l.detail }}</td></tr>{% endfor %}
+ </tbody></table>
+</div>
+{% endblock %}
