@@ -46,8 +46,38 @@ def init_db():
         db.session.commit()
 
 
-with app.app_context():
-    init_db()
+def apply_seed():
+    """إضافة القوائم الجاهزة (الجهات والأنواع والأصناف والمستودعات) من jard_seed.json مرة واحدة فقط.
+    لا يحذف ولا يغيّر أي بيانات موجودة، ويضيف الناقص فقط."""
+    path = os.path.join(BASE, "jard_seed.json")
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8") as f:
+        seed = json.load(f)
+    tag = "seed:" + str(seed.get("exportedAt", ""))
+    if kv_get(tag):
+        return
+    cats = kv_get("categories") or []
+    cats += [c for c in seed.get("categories", []) if c not in cats]
+    if "أخرى" not in cats:
+        cats.append("أخرى")
+    kv_set("categories", cats)
+    whs = kv_get("warehouses") or []
+    whs += [w for w in seed.get("warehouses", []) if w not in whs]
+    kv_set("warehouses", whs)
+    for it in seed.get("items", []):
+        if not Item.query.filter_by(cat=it["cat"], name=it["name"]).first():
+            db.session.add(Item(cat=it["cat"], name=it["name"]))
+            db.session.flush()
+    names = {e.name.strip() for e in Entity.query.all()}
+    for e in seed.get("entities", []):
+        if e["name"].strip() in names:
+            continue
+        db.session.add(Entity(id=e["id"], name=e["name"], warehouses=json.dumps(e.get("warehouses", []), ensure_ascii=False),
+                              delegates="[]", created=e.get("created", ""), date="", notes=""))
+    kv_set(tag, True)
+    kv_set("version", int(kv_get("version", 0) or 0) + 1)
+    db.session.commit()
 
 
 # ------------------------------------------------------------------ أدوات مساعدة
@@ -556,6 +586,16 @@ def e403(e):
     if request.path.startswith("/api/"):
         return jsonify({"error": "forbidden"}), 403
     return render_template("msg.html", title="غير مسموح", msg="ليست لديك صلاحية لهذه الصفحة."), 403
+
+
+# تهيئة قاعدة البيانات وإضافة القوائم الجاهزة عند بدء التشغيل
+with app.app_context():
+    init_db()
+    try:
+        apply_seed()
+    except Exception:  # لا نوقف الموقع بسبب القوائم
+        db.session.rollback()
+        app.logger.exception("seed failed")
 
 
 if __name__ == "__main__":
