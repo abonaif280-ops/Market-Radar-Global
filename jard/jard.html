@@ -471,7 +471,7 @@ function load(){
   b.cur=o.cur||null;return b;}}catch(e){}
  return b;}
 const SV=!!window.JARD_SERVER,SKEY='jard_srv_cache';let SVME=null;
-const SYNC={base:null,version:0,busy:false,timer:null,retry:null,cacheUid:''};
+const SYNC={base:null,version:0,busy:false,timer:null,retry:null,cacheUid:''};let READY_OK;SYNC.ready=new Promise(r=>READY_OK=r);
 let S=load();
 let ME='';try{ME=localStorage.getItem(MEKEY)||'';}catch(e){}
 function save(){if(SV){svCache();svSched();return;}try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast('⚠ تعذّر الحفظ في المتصفح — صدّر نسخة احتياطية الآن');}}
@@ -862,7 +862,7 @@ $('pasteGo').onclick=async()=>{const t=$('pasteText').value;if(!t.trim())return 
 function parseJard(t){t=String(t).replace(/^﻿/,'');const k=t.indexOf('JARD1:');if(k>=0)t=t.slice(k+6);else{const a=t.indexOf('{"type":"jard');if(a>=0)t=t.slice(a);}const z=t.lastIndexOf('}');if(z>=0)t=t.slice(0,z+1);
  try{return JSON.parse(t.trim());}catch(e){throw new Error('النص غير مكتمل أو تم تعديله — انسخ الرسالة كاملة');}}
 async function importFiles(files){const arr=[];for(const f of files)arr.push({name:f.name,text:await f.text()});return importTexts(arr);}
-async function importTexts(arr){const out=[];for(const f of arr){try{const o=parseJard(f.text);let list;
+async function importTexts(arr){if(SV){toast('⏳ جاري التحميل…');await SYNC.ready;}const out=[];for(const f of arr){try{const o=parseJard(f.text);let list;
   if(o.type==='jard-notes'){const r=mergeNotes(o.notes||[]);out.push(`📝 «${f.name}»: أضيفت ${r.added} ملاحظة${r.updated?`، وحُدِّثت ${r.updated}`:''}${r.same?`، ومكررة ${r.same}`:''}`);continue;}
   if(o.type==='jard-entity'){list=[o.entity];if(o.committee)mergeCommittee(o.committee);if(o.org&&!S.settings.hdrR)S.settings.hdrR=o.org;}
   else if(o.type==='jard-backup'){list=o.entities||[];(o.categories||[]).forEach(addCat);(o.items||[]).forEach(i=>addItem(i.cat,i.name));(o.warehouses||[]).forEach(w=>addWh(w));
@@ -1103,6 +1103,7 @@ async function svInit(){svStatus('saving');document.body.classList.add('sv');if(
   if(SYNC.base&&sdiff(SYNC.base,snap()))await svPush();
   svApply(await api('GET','api/state'));svStatus('ok');}
  catch(e){if(e.auth)return svLogin();svStatus('off');if(S.entities.length||S.notes.length)toast('📴 لا يوجد اتصال — تعمل على آخر نسخة محفوظة في الجهاز');}
+ finally{READY_OK();}
  setInterval(svPoll,20000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)svPoll();});window.addEventListener('online',()=>svPoll());
  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(r=>{if(r.active)r.active.postMessage('refresh');}).catch(()=>{});}
 
