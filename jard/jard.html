@@ -60,7 +60,8 @@ td .act{width:90px;text-align:center}
 .list{display:flex;flex-wrap:wrap;gap:6px}
 .tag{display:inline-flex;align-items:center;gap:4px;background:var(--peb);border-radius:16px;padding:4px 4px 4px 12px;font-size:16px}
 .tag button{border:0;background:none;color:var(--sh);padding:0 6px;font-size:15px}
-.row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}.row>label{flex:1;min-width:160px}
+.row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.card{overflow:visible}.row>label{flex:1;min-width:160px}
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#000;color:#fff;font-size:18px;padding:14px 22px;border-radius:8px;opacity:0;transition:.3s;pointer-events:none;z-index:99;max-width:90vw;text-align:center}
 #toast.show{opacity:1}
 .logoPrev{max-height:70px;border:1px solid var(--line);border-radius:6px;padding:3px;background:#fff}
@@ -100,6 +101,15 @@ body.mode-notes #curSel,body.mode-notes #hdrMe{display:none}
 body.sv #meCard,body.sv #btnWipeCard,body.sv #nSend,body.sv .mem button[data-ms=del],body.sv #btnBackupCard{display:none!important}
 body.role-member nav.tabs button[data-tab=set],body.role-member nav.tabs button[data-tab=rep],body.role-member #bkCard,body.role-member button[data-a=del],body.role-member #nMerge,body.role-member #nClear,body.role-member #btnAddMem,body.role-member #expAllBtns{display:none!important}
 .mem input:disabled{background:#eef1f5;border-color:#c5ccd6}
+.pk{position:relative;display:flex;align-items:stretch;width:100%}
+.pk>input,.pk>textarea{flex:1;min-width:0;border-radius:0 8px 8px 0}
+.pkb{flex:0 0 54px;justify-content:center;border-radius:8px 0 0 8px!important;margin-inline-start:-2px;font-size:22px!important;padding:0!important;background:#e3e7ec!important;color:#123a63!important}
+#pkBox{position:absolute;top:100%;left:0;right:0;z-index:40;background:#fff;border:2px solid #123a63;border-radius:10px;max-height:46vh;overflow:auto;box-shadow:0 10px 26px rgba(0,0,0,.28);margin-top:3px;-webkit-overflow-scrolling:touch}
+#pkBox button{display:block;width:100%;text-align:right;border:0;border-bottom:1px solid #e3e7ec;border-radius:0;padding:13px 14px;font-size:18px;font-weight:700;background:#fff;color:#000}
+#pkBox button:hover,#pkBox button:active{background:#ffe9a8}
+#pkBox small{display:block;color:#333;font-size:14px;font-weight:600}
+#pkBox .pke{padding:13px 14px;color:#222;font-size:16px}
+#pkBox .pkh{position:sticky;top:0;background:#123a63;color:#fff;padding:7px 14px;font-size:15px}
 .hint{background:var(--peb);border-radius:8px;padding:10px 14px;font-size:16.5px;color:var(--ink);margin-bottom:10px}
 @media (max-width:760px){
  .filters{grid-template-columns:1fr 1fr}.filters .s{grid-column:1/-1}
@@ -1106,6 +1116,43 @@ async function svInit(){svStatus('saving');document.body.classList.add('sv');if(
  finally{READY_OK();}
  setInterval(svPoll,20000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)svPoll();});window.addEventListener('online',()=>svPoll());
  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(r=>{if(r.active)r.active.postMessage('refresh');}).catch(()=>{});}
+
+/* ================= القوائم المنسدلة (تعمل على الجوال والكمبيوتر) ================= */
+const NOTE_PHRASES=['مقيد في النظام غير موجود فعليًا','موجود فعليًا غير مقيد في النظام','خطأ في الرقم بين الموجود والنظام','مسلم لشخص موقوف','لا توجد له سجلات في النظام','رجيع','مستهلك','تالف','في الصيانة','تم إرجاعه','موجود في مستودع آخر','غير مسجل بعهدة الإدارة','مسجل باسم شخص منقول','قديم مع تبدل في الأرقام','صنف جديد'];
+const PK={box:null,inp:null,get:null,opt:null};
+function pkClose(){if(PK.box)PK.box.remove();PK.box=null;PK.inp=null;}
+function pkOpen(inp,get,all,opt){const items=get()||[];const q=all?'':norm(inp.value);
+ let L=q?items.filter(o=>norm(o.v+' '+(o.sub||'')).includes(q)):items;const more=L.length-150;L=L.slice(0,150);
+ if(!PK.box||PK.inp!==inp){pkClose();PK.box=document.createElement('div');PK.box.id='pkBox';inp.parentNode.appendChild(PK.box);
+  PK.box.addEventListener('pointerdown',e=>e.preventDefault());
+  PK.box.addEventListener('click',e=>{const b=e.target.closest('button[data-i]');if(!b)return;const v=PK.list[+b.dataset.i].v,o=PK.opt;
+   if(o&&o.append&&inp.value.trim()&&!inp.value.includes(v))inp.value=inp.value.trim()+' — '+v;else inp.value=v;
+   pkClose();inp.dispatchEvent(new Event('input',{bubbles:true}));inp.dispatchEvent(new Event('change',{bubbles:true}));if(o&&o.next&&$(o.next))$(o.next).focus();});}
+ PK.inp=inp;PK.get=get;PK.opt=opt;PK.list=L;
+ PK.box.innerHTML=(opt&&opt.title?`<div class="pkh">${esc(opt.title)}</div>`:'')+(L.length?L.map((o,i)=>`<button type="button" data-i="${i}">${esc(o.v)}${o.sub?`<small>${esc(o.sub)}</small>`:''}</button>`).join('')+(more>0?`<div class="pke">… و${more} أخرى — اكتب جزءًا من الاسم للبحث</div>`:''):`<div class="pke">${items.length?'لا توجد نتائج — يمكنك كتابة اسم جديد وسيُضاف للقائمة':'القائمة فارغة — اكتب الاسم وسيُضاف للقائمة'}</div>`);
+ PK.box.scrollTop=0;setTimeout(()=>{if(PK.box)PK.box.scrollIntoView({block:'nearest',behavior:'smooth'});},60);}
+function pickerSetup(id,get,opt){const inp=$(id);if(!inp||inp.dataset.pk)return;inp.dataset.pk=1;inp.removeAttribute('list');inp.setAttribute('autocomplete','off');
+ const w=document.createElement('div');w.className='pk';inp.parentNode.insertBefore(w,inp);w.appendChild(inp);
+ const b=document.createElement('button');b.type='button';b.className='pkb';b.textContent='▾';b.title='عرض القائمة';b.setAttribute('aria-label','عرض القائمة');w.appendChild(b);
+ b.addEventListener('pointerdown',e=>e.preventDefault());
+ b.addEventListener('click',e=>{e.preventDefault();if(PK.inp===inp){pkClose();return;}pkOpen(inp,get,true,opt);});
+ inp.addEventListener('input',()=>{if(PK.inp===inp||document.activeElement===inp)pkOpen(inp,get,!(opt&&opt.append)?false:true,opt);});
+ inp.addEventListener('keydown',e=>{if(e.key==='Escape')pkClose();});
+ inp.addEventListener('blur',()=>setTimeout(()=>{if(PK.inp===inp&&document.activeElement!==inp)pkClose();},200));}
+document.addEventListener('pointerdown',e=>{if(PK.box&&!e.target.closest('.pk'))pkClose();});
+const uniq=a=>[...new Map(a.filter(x=>x&&x.v).map(x=>[norm(x.v),x])).values()];
+const itemsFor=sel=>()=>{const c=$(sel).value;return S.items.filter(i=>!c||c==='__new'||i.cat===c).map(i=>({v:i.name,sub:c&&c!=='__new'?'':i.cat})).sort((a,b)=>a.v.localeCompare(b.v,'ar'));};
+const entNames=()=>uniq(S.entities.map(e=>({v:e.name})).concat(S.notes.map(n=>({v:n.entity}))));
+const peopleNames=()=>uniq(S.committee.members.filter(m=>m.name).map(m=>({v:memLabel(m),sub:roleLabel(m)})).concat(S.notes.map(n=>({v:n.byName}))));
+const notePhrases=()=>uniq(NOTE_PHRASES.map(v=>({v})).concat(S.notes.filter(n=>n.notes&&n.notes.length<60).map(n=>({v:n.notes,sub:'مستخدمة سابقًا'}))));
+pickerSetup('fName',itemsFor('fCat'),{title:'اختر الصنف',next:'fSerial'});
+pickerSetup('fWh',()=>{const e=cur();return uniq(whFor(e).concat(S.warehouses).map(v=>({v})));},{title:'اختر المستودع',next:'fBook'});
+pickerSetup('fNotes',notePhrases,{title:'ملاحظات جاهزة (يمكن اختيار أكثر من واحدة)',append:true});
+pickerSetup('nEnt',entNames,{title:'اختر الجهة',next:'nDate'});
+pickerSetup('nName',itemsFor('nCat'),{title:'اختر الصنف',next:'nBook'});
+pickerSetup('nNotes',notePhrases,{title:'ملاحظات جاهزة (يمكن اختيار أكثر من واحدة)',append:true});
+pickerSetup('nBy',peopleNames,{title:'اختر الاسم'});
+pickerSetup('bkFixed',entNames,{title:'اختر الجهة'});
 
 /* ================= تشغيل ================= */
 renderAll();if(SV)svInit();else save();
