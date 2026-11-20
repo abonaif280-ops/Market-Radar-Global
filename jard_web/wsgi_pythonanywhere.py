@@ -6,4 +6,4 @@ path = "/home/USERNAME/jard_web"
 if path not in sys.path:
     sys.path.insert(0, path)
 
-from flask_app import app as application  # noqa
+from jard_server import app as application  # noqa

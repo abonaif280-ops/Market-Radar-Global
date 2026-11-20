@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 أداة الجرد — الخادم (Flask)
-على PythonAnywhere يُستورد الكائن app من هذا الملف (انظر دليل_الرفع.md).
+على PythonAnywhere يُستورد الكائن app من هذا الملف (jard_server.py) (انظر دليل_الرفع.md).
 """
 import json
 import os
@@ -15,8 +15,8 @@ from flask import (Flask, abort, flash, jsonify, redirect, render_template, requ
                    send_from_directory, session, url_for, Response)
 from werkzeug.security import check_password_hash, generate_password_hash
 
-import config
-from models import (KV, ROLE_ADMIN, ROLE_CHAIR, ROLE_LABELS, ROLE_MEMBER, Entity, Item, Log,
+import jard_config as config
+from jard_models import (KV, ROLE_ADMIN, ROLE_CHAIR, ROLE_LABELS, ROLE_MEMBER, Entity, Item, Log,
                     Note, Row, User, db)
 
 BASE = config.BASE_DIR
@@ -26,6 +26,7 @@ app.config.update(
     SECRET_KEY=config.secret_key(),
     SQLALCHEMY_DATABASE_URI=config.database_uri(),
     SQLALCHEMY_ENGINE_OPTIONS={"pool_recycle": 280, "pool_pre_ping": True},
+    SESSION_COOKIE_NAME="jard_session",
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=config.SECURE_COOKIES,
@@ -317,6 +318,13 @@ def backup(u):
 INJECT = ('<head><script>window.JARD_SERVER=1</script><link rel="manifest" href="manifest.json">'
           '<meta name="theme-color" content="#123a63"><link rel="apple-touch-icon" href="icon-192.png">'
           '<meta name="robots" content="noindex,nofollow">')
+
+
+@app.before_request
+def add_trailing_slash():
+    # عند التشغيل على مسار فرعي (مثل /fp) يجب أن ينتهي الرابط بـ / لتعمل الروابط النسبية
+    if request.script_root and request.environ.get("PATH_INFO", "") == "":
+        return redirect(request.script_root + "/")
 
 
 @app.route("/")

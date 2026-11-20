@@ -12,9 +12,9 @@ from datetime import datetime
 
 from werkzeug.security import generate_password_hash
 
-import config
-from flask_app import app, build_state
-from models import ROLE_ADMIN, User, db
+import jard_config as config
+from jard_server import app, build_state
+from jard_models import ROLE_ADMIN, User, db
 
 
 def main():
