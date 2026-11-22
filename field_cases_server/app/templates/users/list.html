@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}المستخدمون{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>المستخدمون</h1>
+  <a class="button primary" href="/users/new">إضافة مستخدم</a>
+</div>
+<table class="table">
+  <thead>
+    <tr><th>الاسم</th><th>اسم المستخدم</th><th>الدور</th><th>الحالة</th><th>آخر دخول</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for u in users %}
+    <tr>
+      <td>{{ u.full_name }}</td>
+      <td dir="ltr" class="ltr">{{ u.username }}</td>
+      <td>{{ u.role_label }}</td>
+      <td>
+        {% if not u.is_active %}<span class="badge off">موقوف</span>
+        {% elif u.locked_until and u.locked_until > now %}<span class="badge warn">مقفل مؤقتًا</span>
+        {% elif u.must_change_password %}<span class="badge info">بانتظار تغيير كلمة المرور</span>
+        {% else %}<span class="badge ok">نشط</span>{% endif %}
+      </td>
+      <td class="ltr">{{ u.last_login_at.strftime('%Y-%m-%d %H:%M') if u.last_login_at else '—' }} {% if u.last_login_at %}<small class="muted">UTC</small>{% endif %}</td>
+      <td><a href="/users/{{ u.id }}">تعديل</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

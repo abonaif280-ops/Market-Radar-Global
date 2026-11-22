@@ -1,0 +1,128 @@
+# نسخة الشبكة الداخلية: اختبارات على PostgreSQL و SQL Server، وبناء حزمة تثبيت Windows دون إنترنت.
+name: field_cases_server
+
+on:
+  push:
+    paths:
+      - "field_cases_server/**"
+      - ".github/workflows/field_cases_server.yml"
+  pull_request:
+    paths:
+      - "field_cases_server/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: field_cases_server
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [sqlite, postgresql, sqlserver]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: field_cases_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "Ci-Only-Passw0rd!"
+        ports: ["1433:1433"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: ODBC Driver 18 for SQL Server
+        if: matrix.database == 'sqlserver'
+        working-directory: .
+        run: |
+          if ! odbcinst -q -d 2>/dev/null | grep -q "ODBC Driver 18"; then
+            curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/$(lsb_release -rs)/prod $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/mssql-release.list
+            sudo apt-get update
+            sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc
+          fi
+      - run: pip install -r requirements-dev.txt
+      - name: Create SQL Server test database
+        if: matrix.database == 'sqlserver'
+        run: |
+          python - <<'PY'
+          import time, pyodbc
+          conn_str = ("DRIVER={ODBC Driver 18 for SQL Server};SERVER=127.0.0.1,1433;"
+                      "UID=sa;PWD=Ci-Only-Passw0rd!;TrustServerCertificate=yes")
+          for attempt in range(40):
+              try:
+                  conn = pyodbc.connect(conn_str, autocommit=True, timeout=5)
+                  break
+              except pyodbc.Error:
+                  time.sleep(3)
+          else:
+              raise SystemExit("SQL Server did not start")
+          conn.execute("IF DB_ID('field_cases_test') IS NULL CREATE DATABASE field_cases_test")
+          PY
+      - name: Tests
+        env:
+          DB: ${{ matrix.database }}
+        run: |
+          case "$DB" in
+            postgresql) export FC_TEST_DATABASE_URL="postgresql+psycopg://postgres:ci-only-password@127.0.0.1:5432/field_cases_test" ;;
+            sqlserver)  export FC_TEST_DATABASE_URL="mssql+pyodbc://sa:Ci-Only-Passw0rd!@127.0.0.1:1433/field_cases_test?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes" ;;
+          esac
+          python -m pytest -q
+
+  windows-bundle:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build offline bundle
+        shell: pwsh
+        run: .\deploy\windows\build_bundle.ps1
+      - name: Smoke test the bundle (bundled Python only)
+        shell: pwsh
+        run: |
+          $b = "dist\field-cases-server-windows"
+          $db = (Join-Path (Resolve-Path $b) "smoke.db") -replace '\\', '/'
+          Set-Content "$b\config.ini" -Encoding UTF8 -Value @("[server]", "host = 127.0.0.1", "port = 8080", "[database]", "url = sqlite:///$db")
+          & "$b\python\python.exe" "$b\manage.py" check-db
+          if ($LASTEXITCODE -ne 0) { throw "check-db failed" }
+          & "$b\python\python.exe" "$b\manage.py" init-db
+          if ($LASTEXITCODE -ne 0) { throw "init-db failed" }
+          & "$b\python\python.exe" -c "import psycopg, pyodbc, argon2; print('drivers ok')"
+          if ($LASTEXITCODE -ne 0) { throw "drivers missing" }
+          $p = Start-Process -FilePath "$b\start_server.cmd" -PassThru -WindowStyle Hidden
+          $ok = $false
+          for ($i = 0; $i -lt 30; $i++) {
+            Start-Sleep -Seconds 2
+            try {
+              $r = Invoke-WebRequest http://127.0.0.1:8080/health -UseBasicParsing
+              if ($r.Content -match '"ok"') { $ok = $true; break }
+            } catch {}
+          }
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
+          if (-not $ok) { throw "server did not answer /health" }
+          Remove-Item "$b\config.ini", "$b\smoke.db" -ErrorAction SilentlyContinue
+          Remove-Item "$b.zip" -ErrorAction SilentlyContinue
+          Compress-Archive -Path "$b\*" -DestinationPath "$b.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: field-cases-server-windows
+          path: field_cases_server/dist/field-cases-server-windows.zip
+          retention-days: 30

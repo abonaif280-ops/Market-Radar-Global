@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ 'تعديل مستخدم' if edit else 'إضافة مستخدم' }}{% endblock %}
+{% block content %}
+<section class="card narrow">
+  <h1>{{ 'تعديل: ' ~ edit.full_name if edit else 'إضافة مستخدم' }}</h1>
+  <form method="post" action="{{ '/users/' ~ edit.id if edit else '/users/new' }}" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% if edit %}
+      <p class="muted">اسم المستخدم: <span dir="ltr">{{ edit.username }}</span></p>
+    {% else %}
+      <label>اسم المستخدم
+        <input name="username" value="{{ values.username or '' }}" required dir="ltr" maxlength="64">
+        <small class="muted">أحرف إنجليزية صغيرة وأرقام، مثل: u117</small>
+      </label>
+    {% endif %}
+    <label>الاسم الكامل
+      <input name="full_name" value="{{ values.full_name or '' }}" required maxlength="200">
+    </label>
+    <label>الدور
+      <select name="role">
+        {% for r in Role.ALL %}
+        <option value="{{ r }}" {% if values.role == r %}selected{% endif %}>{{ Role.LABELS[r] }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% if edit %}
+    <label class="check"><input type="checkbox" name="is_active" {% if values.is_active %}checked{% endif %}> الحساب نشط</label>
+    {% endif %}
+    <button class="primary" type="submit">{{ 'حفظ' if edit else 'إضافة' }}</button>
+    {% if not edit %}<p class="muted">تُنشأ كلمة مرور مؤقتة تظهر مرة واحدة، ويُطلب تغييرها عند أول دخول.</p>{% endif %}
+  </form>
+</section>
+{% if edit %}
+<section class="card narrow">
+  <h2>إجراءات</h2>
+  <div class="actions">
+    <form method="post" action="/users/{{ edit.id }}/reset-password" data-confirm="إنشاء كلمة مرور مؤقتة جديدة لهذا المستخدم؟ ستُنهى جلساته الحالية.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit">إعادة تعيين كلمة المرور</button>
+    </form>
+    {% if edit.locked_until and edit.locked_until > now %}
+    <form method="post" action="/users/{{ edit.id }}/unlock">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit">إلغاء القفل</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}
