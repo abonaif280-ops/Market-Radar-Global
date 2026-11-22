@@ -40,6 +40,11 @@ def _login_page(request: Request, error: str | None = None, username: str = "", 
 
 @router.get("/login")
 def login_form(request: Request):
+    from .setup import has_users, is_local
+
+    if not has_users(request):
+        # أول تشغيل: إنشاء المدير من المتصفح على السيرفر نفسه.
+        return redirect("/setup")
     return _login_page(request)
 
 

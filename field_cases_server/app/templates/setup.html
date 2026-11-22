@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}إعداد البرنامج — الحالات الميدانية{% endblock %}
+{% block content %}
+<section class="card narrow">
+  <h1>مرحبًا بك في الحالات الميدانية</h1>
+  <p>هذه أول مرة يعمل فيها البرنامج. أنشئ حساب <strong>مدير النظام</strong> الذي ستدخل به، ثم تضيف بقية المستخدمين من داخله.</p>
+  <form method="post" action="/setup" autocomplete="off">
+    <input type="hidden" name="setup_csrf" value="{{ setup_csrf }}">
+    <label>اسم المستخدم
+      <input name="username" value="{{ values.username }}" required dir="ltr" maxlength="64">
+      <small class="muted">أحرف إنجليزية صغيرة وأرقام فقط، مثل: admin</small>
+    </label>
+    <label>الاسم الكامل
+      <input name="full_name" value="{{ values.full_name }}" required maxlength="200" placeholder="مثل: محمد المرواني">
+    </label>
+    <label>كلمة المرور
+      <input name="password" type="password" required dir="ltr" minlength="{{ min_length }}" id="pw1">
+    </label>
+    <label>أعد كتابة كلمة المرور
+      <input name="confirm_password" type="password" required dir="ltr" minlength="{{ min_length }}" id="pw2">
+    </label>
+    <label class="check"><input type="checkbox" data-show-password="pw1 pw2"> إظهار كلمة المرور</label>
+    <div class="alert info">
+      شروط كلمة المرور:
+      <ul>
+        <li>{{ min_length }} أحرف أو أكثر</li>
+        <li>فيها حروف <strong>وأرقام</strong> معًا</li>
+        <li>لا تحتوي اسم المستخدم (مثلًا لا تكتب admin داخلها)</li>
+      </ul>
+      مثال صحيح: <span dir="ltr">Madinah2026</span>
+    </div>
+    <button class="primary big" type="submit">إنشاء الحساب</button>
+  </form>
+</section>
+{% endblock %}

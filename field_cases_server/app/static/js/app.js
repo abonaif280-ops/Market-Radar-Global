@@ -64,3 +64,13 @@ document.addEventListener("click", async (event) => {
   form.addEventListener("change", () => { syncTypeFields(); syncCenters(); syncToggles(); });
   syncTypeFields(); syncCenters(); syncToggles();
 })();
+
+// إظهار/إخفاء كلمة المرور.
+document.addEventListener("change", (event) => {
+  const ids = event.target.dataset && event.target.dataset.showPassword;
+  if (!ids) return;
+  ids.split(" ").forEach((id) => {
+    const field = document.getElementById(id);
+    if (field) field.type = event.target.checked ? "text" : "password";
+  });
+});

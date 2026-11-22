@@ -38,15 +38,22 @@ def init_db(database_url: str) -> None:
     command.upgrade(alembic_config(database_url), "head")
 
 
+PASSWORD_RULES_EN = (
+    "Password must be at least 10 characters, contain letters AND digits, "
+    "and must not contain the username. Example: Madinah2026"
+)
+
+
 def _ask_password(username: str) -> str:
+    print(PASSWORD_RULES_EN)
     while True:
-        first = getpass.getpass("كلمة المرور: ")
+        first = getpass.getpass("Password (input is hidden): ")
         error = security.validate_password(first, username)
         if error:
-            print(error)
+            print(PASSWORD_RULES_EN)
             continue
-        if getpass.getpass("تأكيد كلمة المرور: ") != first:
-            print("كلمتا المرور غير متطابقتين")
+        if getpass.getpass("Repeat password: ") != first:
+            print("Passwords do not match, try again.")
             continue
         return first
 
@@ -59,7 +66,7 @@ def create_admin(database_url: str, username: str, full_name: str, password: str
     factory = make_session_factory(make_engine(database_url))
     with session_scope(factory) as db:
         if db.scalar(select(User).where(User.username == username)):
-            raise SystemExit("اسم المستخدم موجود من قبل")
+            raise SystemExit("This username already exists.")
         now = utcnow()
         user = User(
             username=username,
@@ -93,7 +100,7 @@ def reset_password(database_url: str, username: str, password: str) -> None:
     with session_scope(factory) as db:
         user = db.scalar(select(User).where(User.username == username))
         if user is None:
-            raise SystemExit("المستخدم غير موجود")
+            raise SystemExit("User not found.")
         user.password_hash = security.hash_password(password)
         user.failed_attempts = 0
         user.locked_until = None
@@ -135,18 +142,18 @@ def main(argv: list[str] | None = None) -> int:
             with make_engine(settings.database_url).connect() as conn:
                 conn.execute(text("SELECT 1"))
         except Exception as e:  # noqa: BLE001 — الرسالة لمدير النظام
-            print(f"تعذر الاتصال بقاعدة البيانات: {e}", file=sys.stderr)
+            print(f"Cannot connect to the database: {e}", file=sys.stderr)
             return 1
-        print("الاتصال بقاعدة البيانات سليم")
+        print("Database connection OK")
     elif args.cmd == "init-db":
         init_db(settings.database_url)
-        print("الجداول جاهزة")
+        print("Database tables are ready")
     elif args.cmd == "create-admin":
         create_admin(settings.database_url, args.username, args.full_name, _ask_password(args.username))
-        print("أُنشئ مدير النظام")
+        print("Admin account created")
     elif args.cmd == "reset-password":
         reset_password(settings.database_url, args.username, _ask_password(args.username))
-        print("أُعيد تعيين كلمة المرور")
+        print("Password has been reset. The account is unlocked.")
     return 0
 
 

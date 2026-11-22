@@ -128,5 +128,5 @@ def test_no_api_docs_exposed(client):
         assert client.get(path).status_code == 404
 
 
-def test_login_page_csrf_token_rendered(client):
+def test_login_page_csrf_token_rendered(client, admin):
     assert form_token(client.get("/login").text, "login_csrf")
