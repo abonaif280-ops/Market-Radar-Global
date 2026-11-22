@@ -86,8 +86,9 @@ jobs:
           esac
           python -m pytest -q -ra --tb=short
 
+  # مستقل عن اختبارات قواعد البيانات الخارجية: الحزمة تعمل محليًا بقاعدة SQLite
+  # ويُختبر تشغيلها هنا مباشرة.
   windows-bundle:
-    needs: test
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -107,7 +108,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "check-db failed" }
           & "$b\python\python.exe" "$b\manage.py" init-db
           if ($LASTEXITCODE -ne 0) { throw "init-db failed" }
-          & "$b\python\python.exe" -c "import psycopg, pyodbc, argon2; print('drivers ok')"
+          & "$b\python\python.exe" -c "import psycopg, pyodbc, argon2, zoneinfo; zoneinfo.ZoneInfo('Asia/Riyadh'); print('drivers ok')"
           if ($LASTEXITCODE -ne 0) { throw "drivers missing" }
           $p = Start-Process -FilePath "$b\start_server.cmd" -PassThru -WindowStyle Hidden
           $ok = $false

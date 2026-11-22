@@ -26,9 +26,9 @@ python -m pip install --no-compile --only-binary=:all: --platform win_amd64 `
 if ($LASTEXITCODE -ne 0) { throw "pip install failed" }
 
 Copy-Item -Recurse app, migrations "$Out\"
-Copy-Item manage.py, run_server.py, alembic.ini, config.example.ini, requirements.txt "$Out\"
+Copy-Item manage.py, run_server.py, run_local.py, alembic.ini, config.example.ini, requirements.txt "$Out\"
 Copy-Item deploy\windows\*.cmd, deploy\windows\install.ps1, deploy\windows\uninstall.ps1 "$Out\"
-Copy-Item docs\INSTALL_WINDOWS.md "$Out\"
+Copy-Item docs\INSTALL_WINDOWS.md, docs\LOCAL_QUICKSTART.md "$Out\"
 Get-ChildItem $Out -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force
 
 Compress-Archive -Path "$Out\*" -DestinationPath "$Out.zip" -Force

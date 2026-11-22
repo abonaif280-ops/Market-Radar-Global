@@ -40,7 +40,7 @@ Write-Host "3) فتح المنفذ $Port في جدار الحماية (الشب�
 $ruleName = "FieldCases-$Port"
 if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
   New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $Port `
-    -Action Allow -Profile Domain,Private | Out-Null
+    -Action Allow -Profile Any -RemoteAddress LocalSubnet | Out-Null
 }
 
 Write-Host "4) تسجيل التشغيل التلقائي عند بدء السيرفر"
