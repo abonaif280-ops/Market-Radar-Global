@@ -1,0 +1,5 @@
+program/
+backups/
+dist/
+bundle.enc
+__pycache__/

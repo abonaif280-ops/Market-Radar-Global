@@ -1,0 +1,67 @@
+name: reports_server
+
+on:
+  push:
+    paths:
+      - "reports_server/**"
+      - ".github/workflows/reports_server.yml"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: reports_server
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt pytest
+      - run: python -m pytest -q tests
+
+  windows-bundle:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get the program file (bundle.enc) from the published app
+        uses: actions/checkout@v4
+        with:
+          repository: abonaif280-ops/abonaif280-ops.github.io
+          path: reports_server/site
+          sparse-checkout: bundle.enc
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build offline folder
+        shell: pwsh
+        run: .\deploy\build_bundle.ps1 -BundleEnc site\bundle.enc
+      - name: Smoke test with the bundled Python only
+        shell: pwsh
+        run: |
+          $b = "dist\reports-server-windows"
+          & "$b\python\python.exe" -c "import flask, werkzeug, openpyxl, xlsxwriter, pptx, PIL, lxml.etree, Crypto.Cipher.AES, waitress, hashlib; hashlib.scrypt(b'x', salt=b'y', n=16, r=8, p=1); print('libs ok')"
+          if ($LASTEXITCODE -ne 0) { throw "libraries missing" }
+          $env:REPORTS_NO_BROWSER = "1"
+          $p = Start-Process -FilePath "$b\start_reports.cmd" -PassThru -WindowStyle Hidden
+          $ok = $false
+          for ($i = 0; $i -lt 30; $i++) {
+            Start-Sleep -Seconds 2
+            try {
+              $r = Invoke-WebRequest http://127.0.0.1:8090/ -UseBasicParsing
+              if ($r.Content -match 'name="password"') { $ok = $true; break }
+            } catch {}
+          }
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
+          if (-not $ok) { throw "unlock page did not answer" }
+          if (Test-Path "$b\program") { throw "program folder must not exist before unlock" }
+          Compress-Archive -Path "$b\*" -DestinationPath "$b.zip" -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reports-server-windows
+          path: reports_server/dist/reports-server-windows.zip
+          retention-days: 30
