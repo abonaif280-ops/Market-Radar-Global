@@ -43,3 +43,22 @@ def test_environment_overrides_file(tmp_path, monkeypatch):
     monkeypatch.setenv("FC_PORT", "8443")
     s = load_settings(write(tmp_path, "[database]\nurl = sqlite:///file.db\n"))
     assert s.database_url == "sqlite:///env.db" and s.port == 8443
+
+
+def test_arabic_messages_survive_a_non_utf8_console():
+    import io
+    import sys
+
+    from app.console import use_utf8_console
+
+    raw = io.BytesIO()
+    stream = io.TextIOWrapper(raw, encoding="cp1252")
+    old = sys.stdout
+    sys.stdout = stream
+    try:
+        use_utf8_console()
+        print("الاتصال بقاعدة البيانات سليم")
+        sys.stdout.flush()
+    finally:
+        sys.stdout = old
+    assert "الاتصال".encode() in raw.getvalue()

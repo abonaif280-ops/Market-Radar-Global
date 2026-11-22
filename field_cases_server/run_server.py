@@ -10,11 +10,13 @@ import sys
 
 import uvicorn
 
+from app.console import use_utf8_console
 from app.config import ConfigError, load_settings
 from app.main import create_app
 
 
 def main() -> int:
+    use_utf8_console()
     try:
         settings = load_settings()
     except ConfigError as e:

@@ -20,6 +20,7 @@ from sqlalchemy import select, text
 from app import audit, security
 from app.audit import AuditAction
 from app.clock import utcnow
+from app.console import use_utf8_console
 from app.config import BASE_DIR, ConfigError, load_settings
 from app.db import make_engine, make_session_factory, session_scope
 from app.models import Role, User
@@ -109,6 +110,7 @@ def reset_password(database_url: str, username: str, password: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    use_utf8_console()
     parser = argparse.ArgumentParser(description="إدارة الحالات الميدانية")
     parser.add_argument("--config", type=Path, help="مسار config.ini")
     sub = parser.add_subparsers(dest="cmd", required=True)
