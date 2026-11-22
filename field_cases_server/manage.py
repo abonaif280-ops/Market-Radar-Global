@@ -27,7 +27,8 @@ from app.models import Role, User
 
 
 def alembic_config(database_url: str) -> Config:
-    cfg = Config(str(BASE_DIR / "alembic.ini"))
+    # بدون قراءة alembic.ini: Windows يقرؤه بترميز النظام وقد يفشل.
+    cfg = Config()
     cfg.set_main_option("script_location", str(BASE_DIR / "migrations"))
     cfg.attributes["database_url"] = database_url
     return cfg

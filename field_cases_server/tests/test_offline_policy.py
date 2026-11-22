@@ -24,3 +24,8 @@ def test_no_outbound_network_libraries_in_app_code():
         text = path.read_text(encoding="utf-8")
         for name in forbidden:
             assert f"import {name}" not in text and f"from {name}" not in text, (path, name)
+
+
+def test_files_read_with_the_windows_locale_are_ascii():
+    # Alembic يقرأ alembic.ini بترميز النظام (cp1252/cp1256 على Windows).
+    (ROOT / "alembic.ini").read_bytes().decode("ascii")
