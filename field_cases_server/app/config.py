@@ -10,6 +10,7 @@ import configparser
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG_FILE = BASE_DIR / "config.ini"
@@ -31,10 +32,15 @@ class Settings:
     max_login_attempts: int
     lockout_minutes: int
     data_dir: Path
+    timezone: str = "Asia/Riyadh"
 
     @property
     def https(self) -> bool:
         return bool(self.tls_cert_file and self.tls_key_file)
+
+    @property
+    def tz(self) -> ZoneInfo:
+        return ZoneInfo(self.timezone)
 
 
 def load_settings(path: Path | None = None) -> Settings:
@@ -75,6 +81,11 @@ def load_settings(path: Path | None = None) -> Settings:
         raise ConfigError("لتفعيل HTTPS يجب تحديد tls_cert_file و tls_key_file معًا")
 
     data_dir = Path(get("server", "data_dir", "FC_DATA_DIR", str(BASE_DIR / "data")))  # type: ignore[arg-type]
+    timezone = get("app", "timezone", "FC_TIMEZONE", "Asia/Riyadh")
+    try:
+        ZoneInfo(timezone)  # type: ignore[arg-type]
+    except (ZoneInfoNotFoundError, ValueError) as e:
+        raise ConfigError(f"[app] timezone غير معروف: {timezone}") from e
     return Settings(
         host=get("server", "host", "FC_HOST", "0.0.0.0"),  # type: ignore[arg-type]
         port=get_int("server", "port", "FC_PORT", 8080, 1, 65535),
@@ -86,4 +97,5 @@ def load_settings(path: Path | None = None) -> Settings:
         max_login_attempts=get_int("security", "max_login_attempts", "FC_MAX_ATTEMPTS", 5, 3, 20),
         lockout_minutes=get_int("security", "lockout_minutes", "FC_LOCKOUT", 15, 1, 1440),
         data_dir=data_dir,
+        timezone=timezone,  # type: ignore[arg-type]
     )

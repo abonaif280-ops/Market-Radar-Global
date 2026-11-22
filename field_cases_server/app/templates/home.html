@@ -1,8 +1,27 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>مرحبًا {{ user.full_name }}</h1>
+<div class="page-head">
+  <h1>مرحبًا {{ user.full_name }}</h1>
+  <a class="button primary big" href="/cases/new">+ حالة جديدة</a>
+</div>
 <section class="card">
-  <p>نسخة الشبكة الداخلية تعمل.</p>
-  <p class="muted">إدخال الحالات والبحث فيها يُضاف في المرحلة القادمة.</p>
+  <h2>{{ 'آخر الحالات' if sees_all else 'آخر حالاتي' }}</h2>
+  {% if recent %}
+  <table class="table compact">
+    <thead><tr><th>رقم الحالة</th><th>النوع</th><th>وقت البلاغ</th><th>الحالة</th></tr></thead>
+    <tbody>
+    {% for c in recent %}
+      <tr>
+        <td class="ltr"><a href="/cases/{{ c.id }}">{{ c.code }}</a></td>
+        <td>{{ c.type }}</td>
+        <td>{{ c.occurred }}</td>
+        <td><span class="badge {{ 'warn' if c.draft else 'ok' }}">{{ c.status }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">لا توجد حالات بعد. ابدأ بـ "حالة جديدة".</p>
+  {% endif %}
 </section>
 {% endblock %}

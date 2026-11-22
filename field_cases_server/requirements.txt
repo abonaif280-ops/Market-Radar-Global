@@ -8,3 +8,5 @@ alembic==1.16.1
 argon2-cffi==23.1.0
 psycopg[binary]==3.2.9
 pyodbc==5.2.0
+# بيانات المناطق الزمنية (Windows لا يحتويها).
+tzdata==2025.2

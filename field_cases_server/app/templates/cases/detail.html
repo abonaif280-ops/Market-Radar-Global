@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{{ case.display_code }}{% endblock %}
+{% block content %}
+{% if case_message %}<div class="alert success" role="status">{{ case_message }}</div>{% endif %}
+<div class="page-head">
+  <h1><span class="ltr">{{ case.display_code }}</span> — {{ choices.labels.get(case.case_type_id, '') }}
+    <span class="badge {{ 'warn' if case.status == 'draft' else 'ok' }}">{{ status_label }}</span></h1>
+  <a class="button" href="/cases/{{ case.id }}/edit">تعديل</a>
+</div>
+
+<section class="card">
+  <h2>نص الحالة</h2>
+  <form method="post" action="/cases/{{ case.id }}/text">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="revision" value="{{ case.revision }}">
+    <textarea name="final_text" id="final-text" rows="6" class="case-text">{{ case.final_text or '' }}</textarea>
+    <div class="form-actions">
+      <button type="button" class="primary" data-copy="final-text">نسخ النص</button>
+      <button type="submit" name="action" value="save">حفظ تعديل النص</button>
+      {% if case.is_text_edited %}
+      <button type="submit" name="action" value="restore" data-confirm="استبدال النص بالصياغة الآلية؟ سيضيع تعديلك اليدوي.">إعادة الصياغة الآلية</button>
+      <span class="badge info">النص معدّل يدويًا</span>
+      {% endif %}
+      <span class="muted" id="copy-status" aria-live="polite"></span>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <h2>البيانات</h2>
+  <dl class="details">
+    <dt>وقت البلاغ</dt><dd>{{ occurred }}</dd>
+    <dt>مصدر البلاغ</dt><dd>{{ choices.labels.get(data.report_source_id, '—') if data.report_source_id else '—' }}</dd>
+    <dt>المحافظة</dt><dd>{{ choices.labels.get(data.governorate_id, '—') if data.governorate_id else '—' }}</dd>
+    <dt>المركز</dt><dd>{{ choices.labels.get(data.center_id, '—') if data.center_id else '—' }}</dd>
+    <dt>الموقع</dt><dd>{{ data.location_text or '—' }}</dd>
+    {% if data.location_description %}<dt>وصف الموقع</dt><dd>{{ data.location_description }}</dd>{% endif %}
+    {% if data.coordinates_text %}<dt>الإحداثيات</dt><dd><span class="ltr">{{ data.coordinates_text }}</span></dd>{% endif %}
+    {% for f in fields %}{% set v = data.extra.get(f.key) %}
+      {% if v is not none and v != '' %}
+      <dt>{{ f.label }}</dt><dd>{% if v is sameas true %}نعم{% elif v is sameas false %}لا{% elif v is iterable and v is not string %}{{ v|join('، ') }}{% else %}{{ v }}{% endif %}</dd>
+      {% endif %}
+    {% endfor %}
+    {% if data.case_info %}<dt>معلومات الحالة</dt><dd>{{ data.case_info }}</dd>{% endif %}
+    {% if data.action_taken %}<dt>الإجراء المتخذ</dt><dd>{{ data.action_taken }}</dd>{% endif %}
+    <dt>الإصابات</dt><dd>{{ data.injuries_count if data.has_injuries else 'لا يوجد' }}</dd>
+    <dt>الوفيات</dt><dd>{{ data.deaths_count if data.has_deaths else 'لا يوجد' }}</dd>
+    <dt>الأضرار</dt><dd>{{ data.damage_description if data.has_damage else 'لا يوجد' }}</dd>
+    <dt>الجهات</dt><dd>{% for p in data.party_ids %}{{ choices.labels.get(p, '') }}{% if not loop.last %}، {% endif %}{% else %}—{% endfor %}</dd>
+    {% if data.notes %}<dt>ملاحظات</dt><dd>{{ data.notes }}</dd>{% endif %}
+  </dl>
+</section>
+
+{% if photos %}
+<section class="card">
+  <h2>الصور ({{ photos|length }})</h2>
+  <div class="photos">
+    {% for p in photos %}
+    <figure>
+      <a href="/cases/{{ case.id }}/photos/{{ p.id }}" target="_blank" rel="noopener"><img src="/cases/{{ case.id }}/photos/{{ p.id }}" alt="{{ p.file_name }}" loading="lazy"></a>
+      <figcaption class="ltr">{{ p.file_name }}</figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<p class="muted">أُنشئت بواسطة {{ creator }} في {{ created }} • آخر تعديل بواسطة {{ updater }} في {{ updated }} • الإصدار {{ case.revision }}</p>
+{% endblock %}

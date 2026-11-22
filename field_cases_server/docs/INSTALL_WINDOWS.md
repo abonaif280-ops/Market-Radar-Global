@@ -77,7 +77,7 @@ http://اسم-السيرفر:8080
 | تشغيل | `Start-ScheduledTask -TaskName FieldCasesServer` |
 | نسي المدير كلمة مروره | `C:\FieldCases\manage.cmd reset-password --username admin` |
 | تحديث لإصدار جديد | فك الحزمة الجديدة ثم `install.ps1` مرة أخرى (لا يمس `config.ini`)، ثم `manage.cmd init-db`، ثم إعادة التشغيل |
-| النسخ الاحتياطي | نسخ احتياطي لقاعدة البيانات من SQL Server أو PostgreSQL حسب سياسة الجهة. صور الحالات (من المرحلة القادمة) في `C:\FieldCases\data` وتُنسخ معها |
+| النسخ الاحتياطي | نسخ احتياطي لقاعدة البيانات من SQL Server أو PostgreSQL حسب سياسة الجهة، **ومعها مجلد الصور** `C:\FieldCases\data` (أو المسار في `data_dir`) |
 
 ## الحماية المطبقة
 - كلمات المرور مخزنة بـ Argon2id، ولا تُحفظ كلمة المرور نفسها.

@@ -109,3 +109,26 @@ def logged_in(client: TestClient, username: str, password: str) -> str:
     assert response.status_code == 303, response.text
     page = client.get("/account/password")
     return form_token(page.text)
+
+
+def make_user(app, username: str, role: str, password: str = "User-Pass-2026") -> str:
+    """مستخدم جاهز (بدون إلزام تغيير كلمة المرور) للاختبارات."""
+    from app import security
+    from app.clock import utcnow
+
+    with session_scope(app.state.session_factory) as s:
+        now = utcnow()
+        s.add(
+            User(
+                username=username,
+                full_name=f"مستخدم {username}",
+                role=role,
+                password_hash=security.hash_password(password),
+                is_active=True,
+                must_change_password=False,
+                failed_attempts=0,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+    return password

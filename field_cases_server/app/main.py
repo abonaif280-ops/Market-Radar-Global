@@ -11,7 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from . import __version__
 from .config import Settings, load_settings
 from .db import make_engine, make_session_factory
-from .routes import account, auth, home, users
+from .routes import account, auth, cases, home, users
 from .web import (
     CsrfFailed,
     Forbidden,
@@ -38,7 +38,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.session_factory = make_session_factory(engine)
 
     app.mount("/static", StaticFiles(directory=str(_static_dir())), name="static")
-    for module in (auth, home, account, users):
+    for module in (auth, home, account, users, cases):
         app.include_router(module.router)
 
     @app.middleware("http")

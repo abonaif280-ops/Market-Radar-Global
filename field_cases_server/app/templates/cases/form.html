@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}{{ 'تعديل حالة' if case else 'حالة جديدة' }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ 'تعديل الحالة ' if case else 'حالة جديدة' }}{% if case %}<span class="ltr">{{ case.display_code }}</span>{% endif %}</h1>
+  {% if case %}<a href="/cases/{{ case.id }}">رجوع للحالة</a>{% endif %}
+</div>
+
+{% if errors %}
+<div class="alert error" role="alert">
+  <strong>راجع ما يلي:</strong>
+  <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+  {% if photos_lost %}<p>أعد اختيار الصور، فالمتصفح لا يحتفظ بها بعد إعادة الصفحة.</p>{% endif %}
+</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="case-form" id="case-form"
+      action="{{ '/cases/' ~ case.id ~ '/edit' if case else '/cases/new' }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {% if case %}<input type="hidden" name="revision" value="{{ case.revision }}">{% endif %}
+
+  <section class="card">
+    <h2>1. نوع الحالة</h2>
+    <div class="chips" role="radiogroup">
+      {% for t in lists.types %}
+      <label class="chip"><input type="radio" name="case_type_id" value="{{ t.id }}" {% if form.case_type_id == t.id %}checked{% endif %} required> {{ t.label }}</label>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2. الأساسيات</h2>
+    <div class="grid">
+      <label>وقت البلاغ
+        <input type="datetime-local" name="occurred_at" value="{{ occurred_value }}" required>
+      </label>
+      <label>مصدر البلاغ
+        <select name="report_source_id">
+          <option value="">— اختر —</option>
+          {% for s in lists.sources %}<option value="{{ s.id }}" {% if form.report_source_id == s.id %}selected{% endif %}>{{ s.label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>المحافظة
+        <select name="governorate_id" id="governorate">
+          <option value="">— اختر —</option>
+          {% for g in lists.governorates %}<option value="{{ g.id }}" {% if form.governorate_id == g.id %}selected{% endif %}>{{ g.label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>المركز
+        <select name="center_id" id="center">
+          <option value="">— بدون —</option>
+          {% for c in lists.centers %}<option value="{{ c.id }}" data-parent="{{ c.parent_id or '' }}" {% if form.center_id == c.id %}selected{% endif %}>{{ c.label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="wide">الموقع
+        <input name="location_text" value="{{ form.location_text }}" maxlength="500" placeholder="مثل: جنوب مركز الرايس">
+        <small class="muted">إذا لم يُكتب يُستخدم المركز أو المحافظة في النص.</small>
+      </label>
+      <label class="wide">وصف الموقع
+        <textarea name="location_description" rows="2" maxlength="4000">{{ form.location_description }}</textarea>
+      </label>
+      <label>الإحداثيات
+        <input name="coordinates" value="{{ form.coordinates_text }}" dir="ltr" placeholder="24.468245, 39.612354" maxlength="80">
+        <small class="muted">خط العرض، خط الطول (تُقبل الأرقام العربية)</small>
+      </label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>3. التفاصيل</h2>
+    {% for t in lists.types %}
+      {% set tfields = choices.fields_by_type.get(t.id, []) %}
+      {% if tfields %}
+      <fieldset class="type-fields grid" data-type="{{ t.id }}">
+        <legend>حقول {{ t.label }}</legend>
+        {% for f in tfields %}
+          {% set value = form.extra.get(f.key) if form.case_type_id == t.id else None %}
+          {% if f.input_type == 'boolean' %}
+            <label class="check"><input type="checkbox" name="{{ f.form_name }}" {% if value %}checked{% endif %}> {{ f.label }}</label>
+          {% elif f.input_type == 'select' %}
+            <label>{{ f.label }}{% if f.is_required %} *{% endif %}
+              <select name="{{ f.form_name }}">
+                <option value="">— اختر —</option>
+                {% for o in f.options %}<option {% if value == o %}selected{% endif %}>{{ o }}</option>{% endfor %}
+              </select>
+            </label>
+          {% elif f.input_type == 'multiSelect' %}
+            <fieldset><legend>{{ f.label }}</legend>
+              {% for o in f.options %}<label class="check"><input type="checkbox" name="{{ f.form_name }}" value="{{ o }}" {% if value and o in value %}checked{% endif %}> {{ o }}</label>{% endfor %}
+            </fieldset>
+          {% elif f.input_type == 'number' %}
+            <label>{{ f.label }}{% if f.is_required %} *{% endif %}
+              <input name="{{ f.form_name }}" value="{{ value if value is not none else '' }}" inputmode="numeric" dir="ltr" maxlength="20">
+            </label>
+          {% elif f.input_type == 'multiline' %}
+            <label class="wide">{{ f.label }}{% if f.is_required %} *{% endif %}
+              <textarea name="{{ f.form_name }}" rows="2" maxlength="4000">{{ value or '' }}</textarea>
+            </label>
+          {% else %}
+            <label>{{ f.label }}{% if f.is_required %} *{% endif %}
+              <input name="{{ f.form_name }}" value="{{ value or '' }}" maxlength="4000">
+            </label>
+          {% endif %}
+        {% endfor %}
+      </fieldset>
+      {% endif %}
+    {% endfor %}
+
+    <div class="grid">
+      <label class="wide">معلومات الحالة
+        <textarea name="case_info" rows="3" maxlength="4000">{{ form.case_info }}</textarea>
+      </label>
+      <label class="wide">الإجراء المتخذ
+        <textarea name="action_taken" rows="2" maxlength="4000">{{ form.action_taken }}</textarea>
+      </label>
+    </div>
+
+    <div class="grid three">
+      <div class="toggle-count">
+        <label class="check"><input type="checkbox" name="has_injuries" data-toggles="injuries" {% if form.has_injuries %}checked{% endif %}> توجد إصابات</label>
+        <input name="injuries_count" id="injuries" value="{{ form.injuries_count if form.has_injuries else '' }}" inputmode="numeric" dir="ltr" placeholder="العدد" maxlength="4">
+      </div>
+      <div class="toggle-count">
+        <label class="check"><input type="checkbox" name="has_deaths" data-toggles="deaths" {% if form.has_deaths %}checked{% endif %}> توجد وفيات</label>
+        <input name="deaths_count" id="deaths" value="{{ form.deaths_count if form.has_deaths else '' }}" inputmode="numeric" dir="ltr" placeholder="العدد" maxlength="4">
+      </div>
+      <div class="toggle-count">
+        <label class="check"><input type="checkbox" name="has_damage" data-toggles="damage" {% if form.has_damage %}checked{% endif %}> توجد أضرار</label>
+        <input name="damage_description" id="damage" value="{{ form.damage_description }}" placeholder="وصف الأضرار" maxlength="4000">
+      </div>
+    </div>
+
+    <fieldset class="parties">
+      <legend>الجهات التي تمت مباشرتها</legend>
+      <div class="chips">
+        {% for p in lists.parties %}
+        <label class="chip"><input type="checkbox" name="party_ids" value="{{ p.id }}" {% if p.id in form.party_ids %}checked{% endif %}> {{ p.label }}</label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <label class="wide">ملاحظات
+      <textarea name="notes" rows="2" maxlength="4000">{{ form.notes }}</textarea>
+    </label>
+  </section>
+
+  <section class="card">
+    <h2>4. الصور</h2>
+    {% if photos %}
+    <div class="photos">
+      {% for p in photos %}
+      <figure>
+        <img src="/cases/{{ case.id }}/photos/{{ p.id }}" alt="{{ p.file_name }}" loading="lazy">
+        <figcaption><label class="check"><input type="checkbox" name="remove_photo" value="{{ p.id }}"> حذف</label></figcaption>
+      </figure>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <label>إضافة صور (JPG أو PNG، حتى 10 ميجابايت للصورة)
+      <input type="file" name="photos" accept="image/jpeg,image/png" multiple>
+    </label>
+  </section>
+
+  <div class="form-actions">
+    <button class="primary big" type="submit" name="action" value="complete">حفظ الحالة</button>
+    <button type="submit" name="action" value="draft" formnovalidate>حفظ كمسودة</button>
+    <span class="muted">المسودة تحتاج نوع الحالة فقط، ويمكن إكمالها لاحقًا.</span>
+  </div>
+</form>
+{% endblock %}
