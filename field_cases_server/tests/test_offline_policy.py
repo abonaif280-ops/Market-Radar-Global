@@ -29,3 +29,10 @@ def test_no_outbound_network_libraries_in_app_code():
 def test_files_read_with_the_windows_locale_are_ascii():
     # Alembic يقرأ alembic.ini بترميز النظام (cp1252/cp1256 على Windows).
     (ROOT / "alembic.ini").read_bytes().decode("ascii")
+
+
+def test_no_is_true_comparisons():
+    # SQLAlchemy يكتب is_(True) بصيغة "IS 1" التي يرفضها SQL Server.
+    for path in (ROOT / "app").rglob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        assert ".is_(True)" not in text and ".is_(False)" not in text, path

@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, true
 from sqlalchemy.orm import Session
 
 from .. import audit
@@ -86,7 +86,8 @@ def load_choices(db: Session, include_ids: set[str] | None = None) -> Choices:
             by_list.setdefault(item.list_key, []).append(item)
     fields_by_type: dict[str, list[FieldDef]] = {}
     for f in db.scalars(
-        select(CaseTypeField).where(CaseTypeField.is_active.is_(True)).order_by(CaseTypeField.sort_order)
+        # == true() وليس is_(True): SQL Server لا يقبل "IS 1".
+        select(CaseTypeField).where(CaseTypeField.is_active == true()).order_by(CaseTypeField.sort_order)
     ).all():
         fields_by_type.setdefault(f.case_type_id, []).append(
             FieldDef(
@@ -382,7 +383,7 @@ def template_for(db: Session, case_type_id: str | None) -> TextTemplate | None:
     if case_type_id:
         specific = db.scalars(
             select(TextTemplate)
-            .where(TextTemplate.case_type_id == case_type_id, TextTemplate.is_active.is_(True))
+            .where(TextTemplate.case_type_id == case_type_id, TextTemplate.is_active == true())
             .order_by(TextTemplate.is_default.desc())
         ).first()
         if specific:
