@@ -34,12 +34,15 @@ jobs:
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+          --log-driver none
       mssql:
         image: mcr.microsoft.com/mssql/server:2022-latest
         env:
           ACCEPT_EULA: "Y"
           MSSQL_SA_PASSWORD: "Ci-Only-Passw0rd!"
         ports: ["1433:1433"]
+        # سجل تشغيل SQL Server طويل جدًا ويُطبع في نهاية الـ Job فيُخفي نتيجة الاختبارات.
+        options: --log-driver none
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -81,7 +84,7 @@ jobs:
             postgresql) export FC_TEST_DATABASE_URL="postgresql+psycopg://postgres:ci-only-password@127.0.0.1:5432/field_cases_test" ;;
             sqlserver)  export FC_TEST_DATABASE_URL="mssql+pyodbc://sa:Ci-Only-Passw0rd!@127.0.0.1:1433/field_cases_test?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes" ;;
           esac
-          python -m pytest -q
+          python -m pytest -q -ra --tb=short
 
   windows-bundle:
     needs: test
