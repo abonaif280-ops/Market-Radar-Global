@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b3d2e">
+<title>استمارة صرف مستحقات الدورات الخارجية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;700&family=Tajawal:wght@500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --bg:#eef1f4; --card:#fff; --ink:#000; --muted:#3a3f45; --line:#9aa3ad;
+  --brand:#0b3d2e; --brand2:#14634b; --accent:#0a2fb8; --danger:#b3261e;
+  --focus:#0a2fb8; --radius:12px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Tajawal","Noto Naskh Arabic",Tahoma,sans-serif;font-size:17px;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+
+/* ===== Top bar ===== */
+.topbar{position:sticky;top:0;z-index:20;background:var(--brand);color:#fff;padding:10px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.topbar h1{font-size:clamp(14px,3.8vw,17px);margin:0;font-weight:800;flex:1;line-height:1.3}
+.topbar .tabs{display:flex;gap:6px}
+.tabs button{background:rgba(255,255,255,.15);border:0;color:#fff;padding:8px 14px;border-radius:999px;font-weight:700;cursor:pointer}
+.tabs button.on{background:#fff;color:var(--brand)}
+
+/* ===== Layout ===== */
+.wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;padding:16px;max-width:1500px;margin:0 auto;padding-bottom:110px}
+@media(min-width:1100px){
+  .wrap{grid-template-columns:minmax(420px,560px) minmax(0,1fr)}
+  .topbar .tabs{display:none}
+  .pane{display:block!important}
+  .preview-pane{position:sticky;top:70px;align-self:start;max-height:calc(100vh - 86px);overflow:auto}
+}
+.pane{display:none}
+.pane.show{display:block}
+
+/* ===== Form cards ===== */
+.card{background:var(--card);border-radius:var(--radius);padding:14px 16px 16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.08);border:1px solid #dde2e7}
+.card h2{font-size:17px;margin:0 0 12px;color:var(--brand);font-weight:800;border-bottom:2px solid var(--brand);padding-bottom:6px}
+.card h2 small{color:var(--muted);font-weight:500;font-size:13px}
+.grid{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:560px){.grid.g2{grid-template-columns:1fr 1fr}}
+label.f{display:block}
+label.f>span{display:block;font-weight:800;font-size:15px;margin-bottom:5px;color:#000}
+input[type=text],input[type=tel],select,textarea{width:100%;padding:12px 12px;border:2px solid var(--line);border-radius:10px;background:#fff;font-size:18px;font-weight:700;color:#000;font-family:"Noto Naskh Arabic","Tajawal",Tahoma,sans-serif}
+input::placeholder{color:#8a9199;font-weight:500}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--focus);box-shadow:0 0 0 3px rgba(10,47,184,.18)}
+input.ltr{direction:ltr;text-align:right;letter-spacing:.5px}
+.hint{font-size:13px;color:var(--muted);margin-top:4px}
+.hint.bad{color:var(--danger);font-weight:700}
+.pledge{background:#f6f8fa;border-right:4px solid var(--brand);padding:10px 12px;border-radius:8px;font-family:"Noto Naskh Arabic",serif;font-weight:700;line-height:1.9;margin:0 0 12px}
+.radio{display:flex;gap:10px;align-items:flex-start;padding:12px;border:2px solid var(--line);border-radius:10px;margin-bottom:10px;cursor:pointer;font-weight:700;line-height:1.7;font-family:"Noto Naskh Arabic",serif}
+.radio input{width:22px;height:22px;margin-top:5px;flex:none;accent-color:var(--brand)}
+.radio:has(input:checked){border-color:var(--brand);background:#eef7f3}
+.check{display:flex;gap:8px;align-items:center;font-weight:700;font-size:15px}
+.check input{width:20px;height:20px;accent-color:var(--brand)}
+
+/* signature field */
+.sigbox{border:2px dashed var(--line);border-radius:10px;min-height:76px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#fbfcfd;position:relative;padding:6px}
+.sigbox img{max-height:64px;max-width:100%}
+.sigbox .ph{color:var(--accent);font-weight:800}
+.sigbox .x{position:absolute;top:4px;left:4px;background:var(--danger);color:#fff;border:0;border-radius:8px;padding:2px 9px;font-size:13px;cursor:pointer}
+
+/* ===== Buttons ===== */
+.btn{border:0;border-radius:10px;padding:11px 14px;font-weight:800;cursor:pointer;background:#e3e8ed;color:#000;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:15px;min-height:46px}
+.btn.pri{background:var(--brand);color:#fff}
+.btn.blue{background:var(--accent);color:#fff}
+.btn.wa{background:#1fa855;color:#fff}
+.btn.red{background:var(--danger);color:#fff}
+.btn:active{transform:scale(.98)}
+.actions{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+@media(min-width:560px){.actions{grid-template-columns:repeat(3,1fr)}}
+
+.bottombar{position:fixed;bottom:0;left:0;right:0;z-index:25;background:#fff;border-top:1px solid #d5dbe1;padding:8px 10px calc(8px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(4,1fr);gap:6px;box-shadow:0 -2px 10px rgba(0,0,0,.08)}
+.bottombar .btn{padding:8px 4px;font-size:14px;flex-direction:column;gap:2px;min-height:54px}
+.bottombar .btn b{font-size:19px;line-height:1}
+@media(min-width:1100px){.bottombar{display:none}}
+
+/* ===== Preview ===== */
+.preview-pane .card{padding:10px}
+.pv-outer{width:100%;overflow:hidden;background:#cfd5db;border-radius:8px;padding:10px 0}
+.pv-scale{transform-origin:top right;width:794px;margin-right:0}
+.pv-scale .pg{box-shadow:0 2px 10px rgba(0,0,0,.25);margin:0 auto}
+
+/* ===== Modal ===== */
+.modal{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:12px}
+.modal.show{display:flex}
+.dlg{background:#fff;border-radius:14px;width:100%;max-width:760px;max-height:92vh;overflow:auto;padding:14px}
+.dlg h3{margin:0 0 10px;font-size:18px;color:var(--brand)}
+.padwrap{border:2px solid #000;border-radius:10px;background:#fff;touch-action:none;position:relative}
+.padwrap canvas{width:100%;height:240px;display:block;touch-action:none;cursor:crosshair;border-radius:10px}
+.padwrap .base{position:absolute;bottom:50px;left:20px;right:20px;border-bottom:1px dashed #9aa3ad;pointer-events:none}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.row .btn{flex:1}
+.rec{border:1px solid #d5dbe1;border-radius:10px;padding:10px;margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rec .meta{flex:1;min-width:180px}
+.rec .meta b{display:block;font-size:16px}
+.rec .meta small{color:var(--muted)}
+.rec .btn{min-height:38px;padding:6px 12px;font-size:14px}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:10px 18px;border-radius:999px;z-index:60;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+.busy{position:fixed;inset:0;background:rgba(255,255,255,.7);z-index:70;display:none;align-items:center;justify-content:center;font-weight:800;font-size:18px}
+.busy.show{display:flex}
+
+/* ===== Official page (A4) — shared by preview / PDF / print ===== */
+.pg{width:794px;min-height:1123px;background:#fff;color:#000;padding:26px 38px 20px;font-family:"Noto Naskh Arabic","Simplified Arabic","Traditional Arabic",serif;font-size:11pt;line-height:1.3;direction:rtl;font-weight:700}
+.pg table{border-collapse:collapse;width:100%;direction:rtl}
+.pg .hd td{border:0;vertical-align:top;padding:0}
+.pg .basm{font-size:15pt;text-align:center;font-weight:700}
+.pg .logo{height:70px;display:block;margin:4px auto 0}
+.pg .logo-ph{height:70px}
+.pg .dept{font-size:11pt;line-height:1.6;padding-top:30px!important}
+.pg .ttl{text-align:center;font-size:13.5pt;text-decoration:underline;margin:4px 0 6px}
+.pg .sec{font-size:11.5pt;margin:5px 0 2px;font-weight:700}
+.pg .t td,.pg .t th{border:3px double #000;padding:2px 7px;height:25px;vertical-align:middle;font-weight:700;font-size:11pt}
+.pg .t th{text-align:center;font-weight:700}
+.pg .t .lbl{width:28%;text-align:right}
+.pg .t .val{color:#000;font-weight:700;text-align:right}
+.pg .t .c{text-align:center}
+.pg .box{border:3px double #000}
+.pg .box td{border:0;padding:3px 8px}
+.pg .sig{height:30px;max-width:120px;vertical-align:middle}
+.pg .att{font-size:10pt;line-height:1.6;margin-top:4px}
+.pg .att div{font-size:10pt}
+.pg .fill{border-bottom:1px dotted #555;padding:0 4px;display:inline-block;min-width:40px}
+.pg .mark{font-size:15pt;vertical-align:middle;margin-left:6px}
+
+#printArea{display:none}
+@media print{
+  @page{size:A4;margin:0}
+  body{background:#fff}
+  body>*:not(#printArea){display:none!important}
+  #printArea{display:block!important}
+  #printArea .pg{box-shadow:none;margin:0;min-height:auto;height:296mm;overflow:hidden}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <h1>استمارة طلب صرف مستحقات مالية للدورات الخارجية</h1>
+  <div class="tabs">
+    <button id="tabForm" class="on" type="button">التعبئة</button>
+    <button id="tabPrev" type="button">المعاينة</button>
+  </div>
+</header>
+
+<main class="wrap">
+<!-- ============ FORM ============ -->
+<section class="pane show form-pane" id="paneForm">
+
+  <div class="card">
+    <h2>الإجراءات</h2>
+    <div class="actions">
+      <button class="btn pri" type="button" data-act="save">💾 حفظ في السجل</button>
+      <button class="btn" type="button" data-act="history">🗂️ السجل</button>
+      <button class="btn" type="button" data-act="new">📄 نموذج جديد</button>
+      <button class="btn blue" type="button" data-act="pdf">⬇️ PDF</button>
+      <button class="btn blue" type="button" data-act="word">⬇️ Word</button>
+      <button class="btn" type="button" data-act="print">🖨️ طباعة</button>
+      <button class="btn" type="button" data-act="txt">📝 تصدير نص</button>
+      <button class="btn" type="button" data-act="import">📥 استيراد نص</button>
+      <button class="btn wa" type="button" data-act="share">🟢 مشاركة واتساب</button>
+    </div>
+    <label class="check" style="margin-top:10px"><input type="checkbox" id="optSigInTxt" checked> تضمين التواقيع في ملف النص</label>
+    <input type="file" id="fileImport" accept=".txt,.json,text/plain,application/json" hidden>
+  </div>
+
+  <div class="card">
+    <h2>الترويسة <small>(اختياري)</small></h2>
+    <div class="grid g2">
+      <label class="f"><span>السطر الأول</span><input type="text" data-k="dept1"></label>
+      <label class="f"><span>السطر الثاني</span><input type="text" data-k="dept2"></label>
+    </div>
+    <div class="row">
+      <button class="btn" type="button" id="btnLogo">🖼️ إضافة شعار</button>
+      <button class="btn red" type="button" id="btnLogoDel">حذف الشعار</button>
+    </div>
+    <div class="hint">الشعار يُحفظ في المتصفح ويظهر في الترويسة أعلى الاستمارة.</div>
+    <input type="file" id="fileLogo" accept="image/*" hidden>
+  </div>
+
+  <div class="card">
+    <h2>القسم الأول: المعلومات الشخصية للمرشح</h2>
+    <div class="grid">
+      <label class="f"><span>الاسم الرباعي وفق الهوية الوطنية</span><input type="text" data-k="name" autocomplete="name"></label>
+      <div class="grid g2">
+        <label class="f"><span>الرتبة</span>
+          <input type="text" data-k="rank" list="ranks" placeholder="اختر أو اكتب"></label>
+        <label class="f"><span>الجهة</span><input type="text" data-k="entity"></label>
+        <label class="f"><span>رقم الجوال</span><input type="tel" class="ltr" data-k="mobile" inputmode="numeric" placeholder="05xxxxxxxx"></label>
+        <label class="f"><span>رقم الهوية الوطنية</span><input type="tel" class="ltr" data-k="nid" inputmode="numeric" maxlength="10" placeholder="10 أرقام"><div class="hint" id="nidHint"></div></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>القسم الثاني: معلومات الدورة</h2>
+    <div class="grid">
+      <label class="f"><span>مسمى الدورة</span><input type="text" data-k="course"></label>
+      <label class="f"><span>مكان انعقادها</span><input type="text" data-k="place"></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>القسم الثالث: معلومات بنك المرشح</h2>
+    <div class="grid">
+      <label class="f"><span>اسم البنك</span><input type="text" data-k="bank" list="banks"></label>
+      <label class="f"><span>رقم الآيبان</span><input type="text" class="ltr" data-k="iban" placeholder="SA00 0000 0000 0000 0000 0000" autocapitalize="characters"><div class="hint" id="ibanHint"></div></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>القسم الرابع: تعهد مرشح الدورة فيما يخص صرف المستحقات المالية</h2>
+    <p class="pledge">أتعهد أنا الموقع أدناه بأنه لم يسبق لي صرف المستحقات المالية للدورة آنفة الذكر وعلى هذا جرى التوقيع.</p>
+    <div class="hint" style="margin-bottom:8px">الاسم والرتبة تؤخذ تلقائيًا من القسم الأول.</div>
+    <label class="f"><span>توقيع المرشح</span></label>
+    <div class="sigbox" data-sig="s4"></div>
+  </div>
+
+  <div class="card">
+    <h2>القسم الخامس: معلومات السكن والإعاشة</h2>
+    <label class="radio"><input type="radio" name="housing" value="yes"> أتعهد أنا الموقع أدناه بأنه (تم تأمين) السكن والإعاشة لي أثناء الدورة آنفة الذكر وعلى هذا جرى التوقيع.</label>
+    <label class="radio"><input type="radio" name="housing" value="no"> أتعهد أنا الموقع أدناه بأنه (لم يتم تأمين) السكن والإعاشة لي أثناء الدورة آنفة الذكر وعلى هذا جرى التوقيع.</label>
+    <label class="f"><span>توقيع المرشح</span></label>
+    <div class="sigbox" data-sig="s5"></div>
+  </div>
+
+  <div class="card">
+    <h2>القسم السادس <small>(خاص بالضباط فقط)</small>: مشهد حسم يومية الميدان</h2>
+    <div class="grid">
+      <label class="f"><span>تشهد إدارة / شعبة</span><input type="text" data-k="s6dept" placeholder="التأدية والرواتب"></label>
+      <label class="f"><span>بأن / (الرتبة والاسم)</span><input type="text" data-k="s6person" placeholder="يُعبّأ تلقائيًا من القسم الأول إن تُرك فارغًا"></label>
+      <div class="grid g2">
+        <label class="f"><span>التحق بالدورة اعتبارًا من تاريخ</span><input type="text" class="ltr" data-k="from" placeholder="   /   /  14هـ"></label>
+        <label class="f"><span>إلى تاريخ</span><input type="text" class="ltr" data-k="to" placeholder="   /   /  14هـ"></label>
+      </div>
+      <div class="grid g2">
+        <label class="f"><span>الاسم (المختص)</span><input type="text" data-k="s6name"></label>
+        <label class="f"><span>المسمى الوظيفي</span><input type="text" data-k="s6job"></label>
+        <label class="f"><span>الرتبة</span><input type="text" data-k="s6rank" list="ranks"></label>
+      </div>
+      <label class="f"><span>التوقيع</span></label>
+      <div class="sigbox" data-sig="s6"></div>
+      <div class="hint">الختم الرسمي يُترك فارغًا في المستند للختم اليدوي.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>القسم السابع: مصادقة مدير / مساعد قائد جهة العمل بالمنطقة</h2>
+    <div class="grid">
+      <label class="f"><span>مسمى الوظيفة</span><input type="text" data-k="s7job"></label>
+      <div class="grid g2">
+        <label class="f"><span>الرتبة</span><input type="text" data-k="s7rank" list="ranks"></label>
+        <label class="f"><span>الاسم</span><input type="text" data-k="s7name"></label>
+      </div>
+      <label class="f"><span>التوقيع</span></label>
+      <div class="sigbox" data-sig="s7"></div>
+    </div>
+  </div>
+
+  <datalist id="ranks">
+    <option value="جندي"><option value="جندي أول"><option value="عريف"><option value="وكيل رقيب"><option value="رقيب"><option value="رقيب أول"><option value="رئيس رقباء">
+    <option value="ملازم"><option value="ملازم أول"><option value="نقيب"><option value="رائد"><option value="مقدم"><option value="عقيد"><option value="عميد"><option value="لواء"><option value="فريق">
+  </datalist>
+  <datalist id="banks">
+    <option value="مصرف الراجحي"><option value="البنك الأهلي السعودي"><option value="بنك الرياض"><option value="مصرف الإنماء"><option value="بنك البلاد"><option value="البنك السعودي الفرنسي"><option value="البنك العربي الوطني"><option value="بنك الجزيرة"><option value="البنك السعودي للاستثمار"><option value="البنك السعودي الأول (ساب)">
+  </datalist>
+</section>
+
+<!-- ============ PREVIEW ============ -->
+<section class="pane preview-pane" id="panePrev">
+  <div class="card">
+    <h2>معاينة المستند (بنفس تنسيق الاستمارة)</h2>
+    <div class="pv-outer" id="pvOuter"><div class="pv-scale" id="pvScale"></div></div>
+  </div>
+</section>
+</main>
+
+<nav class="bottombar">
+  <button class="btn pri" type="button" data-act="save"><b>💾</b>حفظ</button>
+  <button class="btn blue" type="button" data-act="pdf"><b>⬇️</b>PDF</button>
+  <button class="btn blue" type="button" data-act="word"><b>⬇️</b>Word</button>
+  <button class="btn" type="button" data-act="more"><b>☰</b>المزيد</button>
+</nav>
+
+<!-- signature modal -->
+<div class="modal" id="mSig"><div class="dlg">
+  <h3 id="sigTitle">التوقيع</h3>
+  <div class="hint" style="margin-bottom:8px">وقّع بإصبعك أو بالقلم داخل المربع — لون الحبر أزرق.</div>
+  <div class="padwrap"><canvas id="pad"></canvas><div class="base"></div></div>
+  <div class="row">
+    <button class="btn" type="button" id="padClear">مسح</button>
+    <button class="btn" type="button" id="padCancel">إلغاء</button>
+    <button class="btn pri" type="button" id="padOk">اعتماد التوقيع</button>
+  </div>
+</div></div>
+
+<!-- history modal -->
+<div class="modal" id="mHist"><div class="dlg">
+  <h3>سجل النماذج المحفوظة في هذا المتصفح</h3>
+  <div id="histList"></div>
+  <div class="row"><button class="btn" type="button" data-close>إغلاق</button></div>
+</div></div>
+
+<!-- more modal (mobile) -->
+<div class="modal" id="mMore"><div class="dlg">
+  <h3>المزيد</h3>
+  <div class="actions">
+    <button class="btn" type="button" data-act="history">🗂️ السجل</button>
+    <button class="btn" type="button" data-act="new">📄 نموذج جديد</button>
+    <button class="btn" type="button" data-act="print">🖨️ طباعة</button>
+    <button class="btn" type="button" data-act="txt">📝 تصدير نص</button>
+    <button class="btn" type="button" data-act="import">📥 استيراد نص</button>
+    <button class="btn wa" type="button" data-act="share">🟢 مشاركة واتساب</button>
+    <button class="btn" type="button" data-act="link">🔗 نسخ رابط معبّأ</button>
+  </div>
+  <div class="row"><button class="btn" type="button" data-close>إغلاق</button></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+<div class="busy" id="busy">جارٍ تجهيز الملف…</div>
+<div id="printArea"></div>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},
+          set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}};
+const K_DRAFT='ecp_draft_v1',K_REC='ecp_records_v1',K_LOGO='ecp_logo_v1';
+
+/* ---------- field definitions (also the text-file labels) ---------- */
+const FIELDS=[
+ ['dept1','الترويسة - السطر الأول'],['dept2','الترويسة - السطر الثاني'],
+ ['name','الاسم الرباعي'],['rank','الرتبة'],['entity','الجهة'],['mobile','رقم الجوال'],['nid','رقم الهوية الوطنية'],
+ ['course','مسمى الدورة'],['place','مكان انعقادها'],
+ ['bank','اسم البنك'],['iban','رقم الآيبان'],
+ ['housing','السكن والإعاشة'],
+ ['s6dept','القسم السادس - الإدارة أو الشعبة'],['s6person','القسم السادس - بأن'],['from','القسم السادس - من تاريخ'],['to','القسم السادس - إلى تاريخ'],
+ ['s6name','القسم السادس - الاسم'],['s6job','القسم السادس - المسمى الوظيفي'],['s6rank','القسم السادس - الرتبة'],
+ ['s7job','القسم السابع - مسمى الوظيفة'],['s7rank','القسم السابع - الرتبة'],['s7name','القسم السابع - الاسم'],
+];
+const SIGS=[['s4','توقيع القسم الرابع','توقيع المرشح - القسم الرابع'],['s5','توقيع القسم الخامس','توقيع المرشح - القسم الخامس'],
+            ['s6','توقيع القسم السادس','توقيع القسم السادس'],['s7','توقيع القسم السابع','توقيع القسم السابع']];
+const DEFAULTS={dept1:'إدارة الابتعاث',dept2:'الدورات الخارجية',s6dept:'التأدية والرواتب'};
+
+function blank(){const d={sigs:{}};FIELDS.forEach(([k])=>d[k]=DEFAULTS[k]||'');return d}
+let data=Object.assign(blank(),LS.get(K_DRAFT,{}));data.sigs=data.sigs||{};
+let currentId=LS.get(K_DRAFT+'_id',null);
+let logo=LS.get(K_LOGO,'');
+
+/* ---------- utils ---------- */
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(m,ms){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),ms||2400)}
+function busy(on){$('#busy').classList.toggle('show',!!on)}
+function fname(ext){const n=(data.name||'استمارة').trim().split(/\s+/).slice(0,3).join('_');return 'صرف_مستحقات_'+n+'.'+ext}
+function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
+const toArabicDigits=s=>s; // keep digits as typed
+
+/* ---------- bind form ---------- */
+function fillForm(){
+  $$('[data-k]').forEach(el=>{el.value=data[el.dataset.k]||''});
+  $$('input[name=housing]').forEach(r=>r.checked=(r.value===data.housing));
+  renderSigBoxes();validate();render();
+}
+let saveT;
+function changed(){LS.set(K_DRAFT,data);clearTimeout(saveT);saveT=setTimeout(render,120)}
+$$('[data-k]').forEach(el=>el.addEventListener('input',()=>{
+  let v=el.value;
+  if(el.dataset.k==='iban'){const p=el.selectionStart;v=v.toUpperCase().replace(/[^A-Z0-9 ]/g,'');el.value=v;try{el.setSelectionRange(p,p)}catch(e){}}
+  if(el.dataset.k==='nid'||el.dataset.k==='mobile'){v=v.replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[^0-9]/g,'');el.value=v}
+  data[el.dataset.k]=v;validate();changed();
+}));
+$$('input[name=housing]').forEach(r=>r.addEventListener('change',()=>{data.housing=r.value;changed()}));
+function validate(){
+  const n=(data.nid||'');const h=$('#nidHint');
+  h.textContent=n&&n.length!==10?'رقم الهوية يجب أن يكون 10 أرقام ('+n.length+')':'';h.className='hint'+(h.textContent?' bad':'');
+  const ib=(data.iban||'').replace(/\s/g,'');const g=$('#ibanHint');
+  g.textContent=ib&&!(/^SA\d{22}$/.test(ib))?'الآيبان السعودي: SA متبوعًا بـ 22 رقمًا ('+ib.length+'/24)':'';g.className='hint'+(g.textContent?' bad':'');
+}
+
+/* ---------- official page builder (shared by preview / pdf / print / word) ---------- */
+function pageHTML(d,imgSrc,forWord){
+  const v=k=>esc(d[k]||'');
+  const B=forWord?'border:double windowtext 2.25pt;':'';
+  const td=(extra,content,attrs)=>`<td ${attrs||''} style="${B}${extra||''}">${content||'&nbsp;'}</td>`;
+  const th=(extra,content,attrs)=>`<th ${attrs||''} style="${B}text-align:center;${extra||''}">${content}</th>`;
+  const sig=k=>d.sigs&&d.sigs[k]?`<img class="sig" src="${imgSrc(k)}" ${forWord?'width="92" height="30"':''} style="height:30px;max-width:120px;vertical-align:middle">`:'';
+  const person=d.s6person||[d.rank,d.name].filter(Boolean).join(' / ');
+  const mk=on=>on?'●':'○';
+  const lg=logo?`<img class="logo" src="${imgSrc('logo')}" ${forWord?'height="70"':''} style="height:70px">`:'<div class="logo-ph" style="height:70px">&nbsp;</div>';
+  const fill=(s,w)=>`<span class="fill" style="${forWord?'':'min-width:'+(w||60)+'px'}">${s?esc(s):'&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;'}</span>`;
+  const boxStyle=forWord?'border:double windowtext 2.25pt;':'';
+  const T='class="t" dir="rtl" cellspacing="0" cellpadding="0" width="100%" style="border-collapse:collapse;width:100%"';
+  return `<div class="pg" dir="rtl">
+<table class="hd" dir="rtl" width="100%" style="border-collapse:collapse;width:100%"><tr>
+ <td class="dept" width="30%" style="text-align:right;vertical-align:top;padding-top:30px;font-size:11pt;line-height:1.6">${v('dept1')}<br>${v('dept2')}</td>
+ <td width="40%" style="text-align:center;vertical-align:top"><div class="basm" style="text-align:center;font-size:15pt">بسم الله الرحمن الرحيم</div>${lg}</td>
+ <td width="30%">&nbsp;</td></tr></table>
+<p class="ttl" style="text-align:center;font-size:13.5pt;text-decoration:underline;margin:4px 0 6px">استمارة طلب صرف مستحقات مالية للدورات الخارجية</p>
+
+<p class="sec">القسم الأول: المعلومات الشخصية للمرشح:-</p>
+<table ${T}>
+<tr>${th('width:38%','الاسم الرباعي وفق الهوية الوطنية')}${th('width:14%','الرتبة')}${th('width:27%','الجهة')}${th('width:21%','رقم الجوال')}</tr>
+<tr>${td('text-align:center',v('name'))}${td('text-align:center',v('rank'))}${td('text-align:center',v('entity'))}${td('text-align:center;direction:ltr',v('mobile'))}</tr>
+<tr>${th('font-size:12.5pt','رقم الهوية الوطنية')}${td('text-align:center;letter-spacing:2px',v('nid'),'colspan="3"')}</tr>
+</table>
+
+<p class="sec">القسم الثاني: معلومات الدورة:-</p>
+<table ${T}>
+<tr>${td('width:28%;text-align:right','مسمى الدورة')}${td('text-align:center',v('course'))}</tr>
+<tr>${td('width:28%;text-align:right','مكان انعقادها')}${td('text-align:center',v('place'))}</tr>
+</table>
+
+<p class="sec">القسم الثالث: معلومات بنك المرشح:-</p>
+<table ${T}>
+<tr>${td('width:28%;text-align:right','اسم البنك')}${td('text-align:center',v('bank'))}</tr>
+<tr>${td('width:28%;text-align:right','رقم الآيبان')}${td('text-align:center;direction:ltr;letter-spacing:1px',v('iban'))}</tr>
+</table>
+
+<p class="sec">القسم الرابع: تعهد مرشح الدورة فيما يخص صرف المستحقات المالية:-</p>
+<table ${T}>
+<tr>${td('text-align:right','أتعهد أنا الموقع أدناه بأنه لم يسبق لي صرف المستحقات المالية للدورة آنفة الذكر وعلى هذا جرى التوقيع.','colspan="3"')}</tr>
+<tr>${td('width:40%;text-align:right','الاسم/ '+v('name'))}${td('width:25%;text-align:right','الرتبة/ '+v('rank'))}${td('text-align:right','التوقيع/ '+sig('s4'))}</tr>
+</table>
+
+<p class="sec">القسم الخامس: معلومات السكن والإعاشة:-</p>
+<table ${T}>
+<tr>${td('text-align:right;line-height:1.6',
+ `<span class="mark" style="font-size:15pt">${mk(d.housing==='yes')}</span> أتعهد أنا الموقع أدناه بأنه (تم تأمين) السكن والإعاشة لي أثناء الدورة آنفة الذكر وعلى هذا جرى التوقيع.<br>
+  <span class="mark" style="font-size:15pt">${mk(d.housing==='no')}</span> أتعهد أنا الموقع أدناه بأنه (لم يتم تأمين) السكن والإعاشة لي أثناء الدورة آنفة الذكر وعلى هذا جرى التوقيع.`,'colspan="3"')}</tr>
+<tr>${td('width:40%;text-align:right','الاسم/ '+v('name'))}${td('width:25%;text-align:right','الرتبة/ '+v('rank'))}${td('text-align:right','التوقيع/ '+sig('s5'))}</tr>
+</table>
+
+<p class="sec">القسم السادس (خاص بالضباط فقط) مشهد حسم يومية الميدان:-</p>
+<table ${T}>
+<tr>${td('text-align:right;line-height:1.8',
+ `تشهد إدارة/ شعبة ${fill(d.s6dept,90)} بأن / ${fill(person,160)} التحق بالدورة آنفة الذكر اعتبارًا من تاريخ ${fill(d.from)} إلى تاريخ ${fill(d.to)}
+  وتم حسم يومية الميدان من راتبه وعلى هذا جرى التوقيع.`,'colspan="3"')}</tr>
+<tr>${td('width:40%;text-align:right','الاسم/ '+v('s6name'))}${td('width:30%;text-align:right','المسمى الوظيفي/ '+v('s6job'))}${td('text-align:center','الختم الرسمي','rowspan="2"')}</tr>
+<tr>${td('text-align:right','الرتبة/ '+v('s6rank'))}${td('text-align:right','التوقيع/ '+sig('s6'))}</tr>
+</table>
+
+<p class="sec">القسم السابع: مصادقة مدير / مساعد قائد جهة العمل بالمنطقة:</p>
+<table ${T}>
+<tr>${td('width:22%;text-align:right','مسمى الوظيفة')}${td('width:50%;text-align:center',v('s7job'))}${th('','الختم الرسمي')}</tr>
+<tr>${td('text-align:right','الرتبة')}${td('text-align:center',v('s7rank'))}${td('','&nbsp;','rowspan="3"')}</tr>
+<tr>${td('text-align:right','الاسم')}${td('text-align:center',v('s7name'))}</tr>
+<tr>${td('text-align:right','التوقيع')}${td('text-align:center',sig('s7'))}</tr>
+</table>
+
+<p class="sec" style="text-decoration:underline">إرفاق المستندات التالية:-</p>
+<div class="att" style="font-size:10pt;line-height:1.6">
+<div>- صورة من شهادة إتمام الدورة مصدقة بالختم الرسمي.</div>
+<div>- صورة من جواز السفر موضحًا به الأختام السفرية.</div>
+<div>- مشهد بالراتب أثناء الدورة.</div>
+</div>
+</div>`;
+}
+const webSrc=k=>k==='logo'?logo:data.sigs[k];
+
+/* ---------- preview scaling ---------- */
+function render(){
+  $('#pvScale').innerHTML=pageHTML(data,webSrc,false);
+  fitPreview();
+}
+function fitPreview(){
+  const o=$('#pvOuter'),s=$('#pvScale');if(!o.clientWidth)return;
+  const sc=Math.min(1,(o.clientWidth-16)/794);
+  s.style.transform=`scale(${sc})`;s.style.marginRight=((o.clientWidth-794*sc)/2)+'px';
+  o.style.height=(s.firstElementChild.offsetHeight*sc+20)+'px';
+}
+addEventListener('resize',fitPreview);
+
+/* ---------- tabs (mobile) ---------- */
+function tab(p){$('#paneForm').classList.toggle('show',p==='f');$('#panePrev').classList.toggle('show',p==='p');
+  $('#tabForm').classList.toggle('on',p==='f');$('#tabPrev').classList.toggle('on',p==='p');if(p==='p'){render();scrollTo(0,0)}}
+$('#tabForm').onclick=()=>tab('f');$('#tabPrev').onclick=()=>tab('p');
+
+/* ---------- signatures ---------- */
+function renderSigBoxes(){
+  $$('.sigbox').forEach(b=>{const k=b.dataset.sig;
+    b.innerHTML=data.sigs[k]?`<img src="${data.sigs[k]}" alt="توقيع"><button class="x" type="button">حذف</button>`:'<span class="ph">✍️ اضغط هنا للتوقيع</span>';
+    const x=b.querySelector('.x');if(x)x.onclick=e=>{e.stopPropagation();delete data.sigs[k];renderSigBoxes();changed()};
+  });
+}
+let sigKey=null,drawn=false;const pad=$('#pad'),ctx=pad.getContext('2d');
+$$('.sigbox').forEach(b=>b.addEventListener('click',()=>openPad(b.dataset.sig)));
+function openPad(k){sigKey=k;$('#sigTitle').textContent=SIGS.find(s=>s[0]===k)[2];$('#mSig').classList.add('show');
+  requestAnimationFrame(()=>{const r=pad.getBoundingClientRect(),dpr=Math.max(2,devicePixelRatio||1);
+    pad.width=r.width*dpr;pad.height=r.height*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#0a2fb8';ctx.fillStyle='#0a2fb8';ctx.clearRect(0,0,r.width,r.height);drawn=false;});}
+let last=null,lastW=2.6;
+function pos(e){const r=pad.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top,t:e.timeStamp,p:e.pressure}}
+pad.addEventListener('pointerdown',e=>{e.preventDefault();pad.setPointerCapture(e.pointerId);last=pos(e);lastW=2.6;ctx.beginPath();ctx.arc(last.x,last.y,1.3,0,7);ctx.fill();drawn=true});
+pad.addEventListener('pointermove',e=>{if(!last)return;e.preventDefault();
+  const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];
+  for(const ev of evs){const p=pos(ev);const dist=Math.hypot(p.x-last.x,p.y-last.y),dt=Math.max(1,p.t-last.t);
+    let w=ev.pointerType==='pen'&&ev.pressure>0?1.2+ev.pressure*3.2:Math.max(1.4,Math.min(3.4,3.6-dist/dt*0.9));
+    w=lastW*0.6+w*0.4;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;lastW=w}});
+['pointerup','pointercancel','pointerleave'].forEach(t=>pad.addEventListener(t,()=>last=null));
+$('#padClear').onclick=()=>{ctx.clearRect(0,0,pad.width,pad.height);drawn=false};
+$('#padCancel').onclick=()=>$('#mSig').classList.remove('show');
+$('#padOk').onclick=()=>{if(!drawn){toast('لم يتم رسم توقيع');return}
+  data.sigs[sigKey]=trimCanvas(pad);$('#mSig').classList.remove('show');renderSigBoxes();changed();toast('تم اعتماد التوقيع')};
+function trimCanvas(c){const w=c.width,h=c.height,px=c.getContext('2d').getImageData(0,0,w,h).data;let x0=w,y0=h,x1=0,y1=0;
+  for(let y=0;y<h;y+=2)for(let x=0;x<w;x+=2){if(px[(y*w+x)*4+3]>10){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}}
+  const m=12;x0=Math.max(0,x0-m);y0=Math.max(0,y0-m);x1=Math.min(w,x1+m);y1=Math.min(h,y1+m);
+  const tw=x1-x0,th=y1-y0,sc=Math.min(1,180/th);const o=document.createElement('canvas');o.width=Math.round(tw*sc);o.height=Math.round(th*sc);
+  o.getContext('2d').drawImage(c,x0,y0,tw,th,0,0,o.width,o.height);return o.toDataURL('image/png')}
+
+/* ---------- logo ---------- */
+$('#btnLogo').onclick=()=>$('#fileLogo').click();
+$('#btnLogoDel').onclick=()=>{logo='';LS.set(K_LOGO,'');render();toast('تم حذف الشعار')};
+$('#fileLogo').onchange=e=>{const f=e.target.files[0];if(!f)return;const img=new Image();const r=new FileReader();
+  r.onload=()=>{img.onload=()=>{const c=document.createElement('canvas'),sc=Math.min(1,260/img.height);c.width=img.width*sc;c.height=img.height*sc;
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);logo=c.toDataURL('image/png');if(!LS.set(K_LOGO,logo))toast('تعذّر حفظ الشعار في المتصفح');render();toast('تمت إضافة الشعار')};img.src=r.result};
+  r.readAsDataURL(f);e.target.value=''};
+
+/* ---------- records (history) ---------- */
+function records(){return LS.get(K_REC,[])}
+function saveRecord(silent){
+  const recs=records();const now=new Date().toISOString();
+  const copy=JSON.parse(JSON.stringify(data));
+  let r=currentId&&recs.find(x=>x.id===currentId);
+  if(r){r.data=copy;r.updated=now}else{currentId='r'+Date.now();recs.unshift({id:currentId,created:now,updated:now,data:copy});LS.set(K_DRAFT+'_id',currentId)}
+  if(!LS.set(K_REC,recs)){toast('مساحة المتصفح ممتلئة — احذف سجلات قديمة');return}
+  if(!silent)toast('تم الحفظ في سجل المتصفح ✔');
+}
+function showHistory(){
+  const recs=records(),L=$('#histList');
+  L.innerHTML=recs.length?'':'<p class="hint">لا توجد نماذج محفوظة بعد.</p>';
+  recs.forEach(r=>{const d=new Date(r.updated);const el=document.createElement('div');el.className='rec';
+    el.innerHTML=`<div class="meta"><b>${esc(r.data.name||'(بدون اسم)')}</b><small>${esc(r.data.rank||'')} ${r.data.course?'— '+esc(r.data.course):''}<br>آخر تعديل: ${d.toLocaleString('ar-SA-u-nu-latn')}</small></div>
+    <button class="btn pri" type="button">فتح</button><button class="btn" type="button">نسخة</button><button class="btn red" type="button">حذف</button>`;
+    const [bo,bc,bd]=el.querySelectorAll('button');
+    bo.onclick=()=>{data=Object.assign(blank(),JSON.parse(JSON.stringify(r.data)));currentId=r.id;LS.set(K_DRAFT+'_id',currentId);LS.set(K_DRAFT,data);fillForm();closeAll();toast('تم فتح النموذج')};
+    bc.onclick=()=>{data=Object.assign(blank(),JSON.parse(JSON.stringify(r.data)));data.sigs={};currentId=null;LS.set(K_DRAFT+'_id',null);LS.set(K_DRAFT,data);fillForm();closeAll();toast('نسخة جديدة (بدون تواقيع)')};
+    bd.onclick=()=>{if(!confirm('حذف هذا النموذج من السجل؟'))return;LS.set(K_REC,records().filter(x=>x.id!==r.id));if(currentId===r.id){currentId=null;LS.set(K_DRAFT+'_id',null)}showHistory()};
+    L.appendChild(el)});
+  $('#mHist').classList.add('show');
+}
+function newForm(){if(!confirm('بدء نموذج جديد؟ (احفظ الحالي في السجل أولًا إن أردت)'))return;data=blank();currentId=null;LS.set(K_DRAFT+'_id',null);LS.set(K_DRAFT,data);fillForm();toast('نموذج جديد')}
+
+/* ---------- text export / import ---------- */
+function toText(withSigs){
+  const lines=['# استمارة طلب صرف مستحقات مالية للدورات الخارجية','# صيغة: "اسم الحقل: القيمة" — يمكن تعديل القيم ثم استيراد الملف',''];
+  FIELDS.forEach(([k,l])=>{let val=data[k]||'';if(k==='housing')val=val==='yes'?'تم تأمين':val==='no'?'لم يتم تأمين':'';lines.push(l+': '+val)});
+  if(withSigs)SIGS.forEach(([k,l])=>{if(data.sigs[k])lines.push(l+': '+data.sigs[k])});
+  return lines.join('\r\n');
+}
+function fromText(txt){
+  txt=txt.replace(/^\uFEFF/,'').trim();
+  if(txt.startsWith('{')){const o=JSON.parse(txt);const d=Object.assign(blank(),o);d.sigs=o.sigs||{};return d}
+  const d=blank();const byLabel={};FIELDS.forEach(([k,l])=>{byLabel[l]=k;byLabel[k]=k});
+  const sigBy={};SIGS.forEach(([k,l])=>{sigBy[l]=k;sigBy['sig_'+k]=k});let n=0;
+  txt.split(/\r?\n/).forEach(line=>{if(!line.trim()||line.trim().startsWith('#'))return;
+    const m=line.match(/^\s*([^:=]+?)\s*[:=]\s?(.*)$/);if(!m)return;const key=m[1].trim(),val=m[2].trim();
+    if(sigBy[key]){if(val.startsWith('data:image/'))d.sigs[sigBy[key]]=val;n++;return}
+    const k=byLabel[key];if(!k)return;
+    d[k]=k==='housing'?(/لم/.test(val)||val==='no'?'no':(val?'yes':'')):val;n++});
+  if(!n)throw new Error('no fields');return d;
+}
+function exportTxt(){const t='\uFEFF'+toText($('#optSigInTxt').checked);download(new Blob([t],{type:'text/plain;charset=utf-8'}),fname('txt'));toast('تم تصدير ملف النص')}
+$('#fileImport').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{data=fromText(r.result);currentId=null;LS.set(K_DRAFT+'_id',null);LS.set(K_DRAFT,data);fillForm();saveRecord(true);toast('تم استيراد البيانات وحفظها في السجل ✔')}catch(err){toast('الملف غير صالح')}};
+  r.readAsText(f,'utf-8');e.target.value=''};
+
+/* ---------- link sharing (data in URL hash) ---------- */
+function b64u(bytes){let s='';bytes.forEach(b=>s+=String.fromCharCode(b));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function unb64u(s){s=s.replace(/-/g,'+').replace(/_/g,'/');const bin=atob(s);return Uint8Array.from(bin,c=>c.charCodeAt(0))}
+async function encodeData(){
+  const o={};FIELDS.forEach(([k])=>{if(data[k]&&data[k]!==(DEFAULTS[k]||''))o[k]=data[k]});
+  const raw=new TextEncoder().encode(JSON.stringify(o));
+  if(window.CompressionStream){try{const cs=new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    return 'z'+b64u(new Uint8Array(await new Response(cs).arrayBuffer()))}catch(e){}}
+  return 'j'+b64u(raw);
+}
+async function decodeData(s){
+  const bytes=unb64u(s.slice(1));let json;
+  if(s[0]==='z'){const ds=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));json=await new Response(ds).text()}
+  else json=new TextDecoder().decode(bytes);
+  const d=Object.assign(blank(),JSON.parse(json));d.sigs={};return d;
+}
+async function makeLink(){const base=location.href.split('#')[0];return base+'#d='+await encodeData()}
+async function copyLink(){
+  if(!/^https?:/.test(location.protocol)){toast('الرابط المعبّأ يعمل عند رفع الصفحة على موقع (مثل GitHub Pages)',3800);return}
+  const l=await makeLink();try{await navigator.clipboard.writeText(l);toast('تم نسخ الرابط — من يفتحه تُعبّأ له البيانات تلقائيًا',3500)}catch(e){prompt('انسخ الرابط:',l)}
+}
+async function share(){
+  const txt=toText($('#optSigInTxt').checked);
+  const file=new File(['\uFEFF'+txt],fname('txt'),{type:'text/plain'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:'استمارة صرف مستحقات',text:'بيانات استمارة صرف المستحقات — افتح الصفحة ثم «استيراد نص».'});return}catch(e){if(e.name==='AbortError')return}
+  }
+  if(/^https?:/.test(location.protocol)){const l=await makeLink();open('https://wa.me/?text='+encodeURIComponent('استمارة صرف مستحقات الدورة — '+(data.name||'')+'\n'+l),'_blank');return}
+  open('https://wa.me/?text='+encodeURIComponent(toText(false)),'_blank');
+}
+async function loadFromHash(){
+  const m=location.hash.match(/[#&]d=([^&]+)/);if(!m)return;
+  try{data=await decodeData(m[1]);currentId=null;LS.set(K_DRAFT+'_id',null);LS.set(K_DRAFT,data);fillForm();saveRecord(true);
+    history.replaceState(null,'',location.pathname+location.search);toast('تم تعبئة النموذج من الرابط وحفظه في السجل ✔',3500)}
+  catch(e){toast('تعذّر قراءة بيانات الرابط')}
+}
+
+/* ---------- PDF ---------- */
+async function exportPDF(){
+  if(!window.html2canvas||!window.jspdf){toast('مكتبة PDF غير متاحة (بدون إنترنت) — سيتم فتح الطباعة: اختر «حفظ كـ PDF»',4000);setTimeout(doPrint,600);return}
+  busy(true);saveRecord(true);
+  const host=document.createElement('div');host.style.cssText='position:fixed;top:0;left:-12000px;width:794px;background:#fff;z-index:-1';
+  host.innerHTML=pageHTML(data,webSrc,false);document.body.appendChild(host);
+  try{
+    if(document.fonts&&document.fonts.ready)await document.fonts.ready;
+    const pg=host.firstElementChild;
+    const canvas=await html2canvas(pg,{scale:2.5,backgroundColor:'#ffffff',useCORS:true,windowWidth:900});
+    const pdf=new jspdf.jsPDF({orientation:'p',unit:'mm',format:'a4',compress:true});
+    let w=210,h=canvas.height*210/canvas.width;if(h>297){h=297;w=canvas.width*297/canvas.height}
+    pdf.addImage(canvas.toDataURL('image/jpeg',0.93),'JPEG',(210-w)/2,0,w,h);
+    pdf.setProperties({title:'استمارة طلب صرف مستحقات مالية للدورات الخارجية'});
+    download(pdf.output('blob'),fname('pdf'));toast('تم إنشاء ملف PDF ✔');
+  }catch(e){console.error(e);toast('تعذّر إنشاء PDF — استخدم الطباعة ← حفظ PDF',3500)}
+  finally{host.remove();busy(false)}
+}
+function doPrint(){$('#printArea').innerHTML=pageHTML(data,webSrc,false);saveRecord(true);setTimeout(()=>print(),300)}
+
+/* ---------- Word (.docx حقيقي: جداول RTL بحدود مزدوجة + صور التواقيع) ---------- */
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0}
+function zip(files){ // files: [[name, Uint8Array]] — stored (no compression)
+  const enc=new TextEncoder(),chunks=[],cen=[];let off=0;
+  const u16=v=>[v&255,(v>>8)&255],u32=v=>[v&255,(v>>8)&255,(v>>16)&255,(v>>>24)&255];
+  files.forEach(([n,data])=>{const nm=enc.encode(n),c=crc32(data);
+    const h=new Uint8Array([...u32(0x04034b50),...u16(20),...u16(0x800),...u16(0),...u16(0),...u16(0x21),...u32(c),...u32(data.length),...u32(data.length),...u16(nm.length),...u16(0)]);
+    chunks.push(h,nm,data);
+    cen.push(new Uint8Array([...u32(0x02014b50),...u16(20),...u16(20),...u16(0x800),...u16(0),...u16(0),...u16(0x21),...u32(c),...u32(data.length),...u32(data.length),...u16(nm.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)]),nm);
+    off+=h.length+nm.length+data.length});
+  const cs=cen.reduce((a,b)=>a+b.length,0);
+  const end=new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(files.length),...u16(files.length),...u32(cs),...u32(off),...u16(0)]);
+  return new Blob([...chunks,...cen,end],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+}
+const dataUrlBytes=u=>{const b=atob(u.split(',')[1]);return Uint8Array.from(b,c=>c.charCodeAt(0))};
+const imgSize=u=>new Promise(r=>{const i=new Image();i.onload=()=>r([i.naturalWidth,i.naturalHeight]);i.onerror=()=>r([300,100]);i.src=u});
+
+async function buildDocx(d){
+  const X=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const FONT='Simplified Arabic',W=10306;
+  const media=[];let rid=10,pid=1;
+  async function img(u,hPx){const [w,h]=await imgSize(u);const cy=Math.round(hPx*9525),cx=Math.round(hPx*w/h*9525);
+    const id='rId'+(++rid),name='image'+(media.length+1)+'.png';media.push([id,name,dataUrlBytes(u)]);const n=pid++;
+    return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${n}" name="Picture ${n}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${n}" name="${name}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${id}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`}
+  const R=(t,o={})=>{if(t==null||t==='')return '';const sz=Math.round((o.size||10.5)*2);
+    return `<w:r><w:rPr><w:rFonts w:ascii="${FONT}" w:hAnsi="${FONT}" w:cs="${FONT}"/><w:b/><w:bCs/>${o.u?`<w:u w:val="${o.u}"/>`:''}<w:color w:val="000000"/><w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/><w:rtl/></w:rPr><w:t xml:space="preserve">${X(t)}</w:t></w:r>`};
+  const P=(runs,o={})=>`<w:p><w:pPr><w:bidi/><w:spacing w:before="${o.before||0}" w:after="${o.after||0}" w:line="${o.line||240}" w:lineRule="auto"/>${o.jc?`<w:jc w:val="${o.jc}"/>`:''}</w:pPr>${runs}</w:p>`;
+  const DB='w:val="double" w:sz="12" w:space="0" w:color="000000"';
+  const borders=`<w:top ${DB}/><w:left ${DB}/><w:bottom ${DB}/><w:right ${DB}/>`;
+  const C=(w,content,o={})=>`<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${o.span?`<w:gridSpan w:val="${o.span}"/>`:''}${o.vm?`<w:vMerge${o.vm==='restart'?' w:val="restart"':''}/>`:''}<w:tcBorders>${o.nob?'<w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/>':borders}</w:tcBorders><w:vAlign w:val="${o.va||'center'}"/></w:tcPr>${content||P('')}</w:tc>`;
+  const TR=(cells,h)=>`<w:tr><w:trPr>${h?`<w:trHeight w:val="${h}" w:hRule="atLeast"/>`:''}<w:cantSplit/></w:trPr>${cells.join('')}</w:tr>`;
+  const TBL=(grid,rows,nob)=>`<w:tbl><w:tblPr><w:bidiVisual/><w:tblW w:w="${W}" w:type="dxa"/><w:tblLayout w:type="fixed"/>${nob?'':`<w:tblBorders>${borders}<w:insideH ${DB}/><w:insideV ${DB}/></w:tblBorders>`}<w:tblCellMar><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${grid.map(g=>`<w:gridCol w:w="${g}"/>`).join('')}</w:tblGrid>${rows.join('')}</w:tbl>`;
+  const SEC=t=>P(R(t,{size:11}),{before:70,after:20});
+  const v=k=>d[k]||'';
+  const ctr=t=>P(R(t),{jc:'center'}), rt=t=>P(R(t)), H=340;
+  const sig=async k=>d.sigs&&d.sigs[k]?await img(d.sigs[k],30):'';
+  const lbl=async(l,val,sk)=>P(R(l)+R(val)+(sk?await sig(sk):''));
+  const person=d.s6person||[d.rank,d.name].filter(Boolean).join(' / ');
+  const blank=s=>s?R(' '+s+' ',{u:'dotted'}):R('   /    /      ',{u:'dotted'});
+  const mk=on=>on?'● ':'○ ';
+  let body='';
+  // header
+  const logoRun=logo?await img(logo,70):'';
+  body+=TBL([3092,4122,3092],[TR([
+    C(3092,P(R(v('dept1')),{before:360})+P(R(v('dept2'))),{nob:1,va:'top'}),
+    C(4122,P(R('بسم الله الرحمن الرحيم',{size:15}),{jc:'center'})+(logoRun?P(logoRun,{jc:'center'}):''),{nob:1,va:'top'}),
+    C(3092,'',{nob:1})])],true);
+  body+=P(R('استمارة طلب صرف مستحقات مالية للدورات الخارجية',{size:13.5,u:'single'}),{jc:'center',before:60,after:100});
+  // S1
+  body+=SEC('القسم الأول: المعلومات الشخصية للمرشح:-');
+  body+=TBL([3916,1443,2783,2164],[
+    TR([C(3916,ctr('الاسم الرباعي وفق الهوية الوطنية')),C(1443,ctr('الرتبة')),C(2783,ctr('الجهة')),C(2164,ctr('رقم الجوال'))],H),
+    TR([C(3916,ctr(v('name'))),C(1443,ctr(v('rank'))),C(2783,ctr(v('entity'))),C(2164,ctr(v('mobile')))],H),
+    TR([C(3916,P(R('رقم الهوية الوطنية',{size:12.5}),{jc:'center'})),C(6390,ctr(v('nid')),{span:3})],H)]);
+  // S2,S3
+  const two=(a,b,c,dd)=>TBL([2886,7420],[TR([C(2886,rt(a)),C(7420,ctr(b))],H),TR([C(2886,rt(c)),C(7420,ctr(dd))],H)]);
+  body+=SEC('القسم الثاني: معلومات الدورة:-')+two('مسمى الدورة',v('course'),'مكان انعقادها',v('place'));
+  body+=SEC('القسم الثالث: معلومات بنك المرشح:-')+two('اسم البنك',v('bank'),'رقم الآيبان',v('iban'));
+  // S4,S5
+  const nrs=async k=>TR([C(4122,await lbl('الاسم/ ',v('name'))),C(2577,await lbl('الرتبة/ ',v('rank'))),C(3607,await lbl('التوقيع/ ','',k))],H);
+  body+=SEC('القسم الرابع: تعهد مرشح الدورة فيما يخص صرف المستحقات المالية:-');
+  body+=TBL([4122,2577,3607],[TR([C(W,rt('أتعهد أنا الموقع أدناه بأنه لم يسبق لي صرف المستحقات المالية للدورة آنفة الذكر وعلى هذا جرى التوقيع.'),{span:3})],H),await nrs('s4')]);
+  body+=SEC('القسم الخامس: معلومات السكن والإعاشة:-');
+  body+=TBL([4122,2577,3607],[TR([C(W,
+     P(R(mk(d.housing==='yes'),{size:14})+R('أتعهد أنا الموقع أدناه بأنه (تم تأمين) السكن والإعاشة لي أثناء الدورة آنفة الذكر وعلى هذا جرى التوقيع.'),{after:40})+
+     P(R(mk(d.housing==='no'),{size:14})+R('أتعهد أنا الموقع أدناه بأنه (لم يتم تأمين) السكن والإعاشة لي أثناء الدورة آنفة الذكر وعلى هذا جرى التوقيع.')),{span:3})]),await nrs('s5')]);
+  // S6
+  body+=SEC('القسم السادس (خاص بالضباط فقط) مشهد حسم يومية الميدان:-');
+  body+=TBL([4122,3092,3092],[
+    TR([C(W,P(R('تشهد إدارة/ شعبة ')+blank(d.s6dept)+R(' بأن / ')+blank(person)+R(' التحق بالدورة آنفة الذكر اعتبارًا من تاريخ ')+blank(d.from)+R(' إلى تاريخ ')+blank(d.to)+R(' وتم حسم يومية الميدان من راتبه وعلى هذا جرى التوقيع.'),{line:276}),{span:3})],H),
+    TR([C(4122,await lbl('الاسم/ ',v('s6name'))),C(3092,await lbl('المسمى الوظيفي/ ',v('s6job'))),C(3092,ctr('الختم الرسمي'),{vm:'restart'})],H),
+    TR([C(4122,await lbl('الرتبة/ ',v('s6rank'))),C(3092,await lbl('التوقيع/ ','','s6')),C(3092,'',{vm:'cont'})],H)]);
+  // S7
+  body+=SEC('القسم السابع: مصادقة مدير / مساعد قائد جهة العمل بالمنطقة:');
+  body+=TBL([2267,5153,2886],[
+    TR([C(2267,rt('مسمى الوظيفة')),C(5153,ctr(v('s7job'))),C(2886,ctr('الختم الرسمي'))],H),
+    TR([C(2267,rt('الرتبة')),C(5153,ctr(v('s7rank'))),C(2886,'',{vm:'restart'})],H),
+    TR([C(2267,rt('الاسم')),C(5153,ctr(v('s7name'))),C(2886,'',{vm:'cont'})],H),
+    TR([C(2267,rt('التوقيع')),C(5153,P(await sig('s7'),{jc:'center'})),C(2886,'',{vm:'cont'})],H)]);
+  body+=P(R('إرفاق المستندات التالية:-',{size:11.5,u:'single'}),{before:120,after:20});
+  ['- صورة من شهادة إتمام الدورة مصدقة بالختم الرسمي.','- صورة من جواز السفر موضحًا به الأختام السفرية.','- مشهد بالراتب أثناء الدورة.'].forEach(t=>body+=P(R(t,{size:10})));
+
+  const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="620" w:right="800" w:bottom="500" w:left="800" w:header="300" w:footer="300" w:gutter="0"/><w:bidi/></w:sectPr></w:body></w:document>`;
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="${FONT}" w:hAnsi="${FONT}" w:cs="${FONT}" w:eastAsia="${FONT}"/><w:b/><w:bCs/><w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="ar-SA" w:bidi="ar-SA"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:bidi/><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>`;
+  const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${media.map(([id,n])=>`<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${n}"/>`).join('')}</Relationships>`;
+  const ct=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>`;
+  const root=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
+  const e=s=>new TextEncoder().encode(s);
+  return zip([['[Content_Types].xml',e(ct)],['_rels/.rels',e(root)],['word/document.xml',e(doc)],['word/styles.xml',e(styles)],['word/_rels/document.xml.rels',e(rels)],...media.map(([,n,b])=>['word/media/'+n,b])]);
+}
+async function exportWord(){
+  busy(true);saveRecord(true);
+  try{download(await buildDocx(data),fname('docx'));toast('تم إنشاء ملف Word ✔')}
+  catch(e){console.error(e);toast('تعذّر إنشاء ملف Word')}finally{busy(false)}
+}
+/* ---------- actions ---------- */
+function closeAll(){$$('.modal').forEach(m=>m.classList.remove('show'))}
+$$('[data-close]').forEach(b=>b.onclick=closeAll);
+$$('.modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m&&m.id!=='mSig')closeAll()}));
+const ACT={save:()=>saveRecord(),history:showHistory,new:newForm,pdf:exportPDF,word:exportWord,print:doPrint,txt:exportTxt,
+  import:()=>$('#fileImport').click(),share,link:copyLink,more:()=>$('#mMore').classList.add('show')};
+$$('[data-act]').forEach(b=>b.addEventListener('click',()=>{const a=b.dataset.act;if(b.closest('#mMore')&&a!=='history')closeAll();if(b.closest('#mMore')&&a==='history')closeAll();ACT[a]()}));
+addEventListener('hashchange',loadFromHash);
+
+fillForm();loadFromHash();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitPreview);
+})();
+</script>
+</body>
+</html>
