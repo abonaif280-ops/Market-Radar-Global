@@ -523,7 +523,7 @@ def main() -> int:
     url = f"http://127.0.0.1:{PORT}"
     # نص إنجليزي: نافذة الأوامر في Windows لا تعرض العربية بشكل صحيح.
     print("=" * 60)
-    print("  Reports (التقارير) is running.")
+    print("  Reports is running.")
     print(f"  On this computer:   {url}")
     if HOST != "127.0.0.1":
         print("  From other computers on the office network:")
@@ -541,8 +541,12 @@ def main() -> int:
         threading.Timer(2.0, lambda: webbrowser.open(url)).start()
     from waitress import serve
 
-    # threads=1: الطلبات تُنفَّذ بالتسلسل كما في نسخة المتصفح (قاعدة SQLite واحدة، بلا تداخل)
-    serve(gate, host=HOST, port=PORT, threads=1, max_request_body_size=4 * 1024 ** 3, ident=None)
+    import logging
+
+    # البرنامج الأصلي يُشغَّل بـ waitress و8 خيوط (يفتح اتصال قاعدة لكل طلب بمهلة انتظار)،
+    # فنستخدم نفس الإعداد. تحذير «Task queue depth» مجرد معلومة عن الانتظار وليس خطأ.
+    logging.getLogger("waitress.queue").setLevel(logging.ERROR)
+    serve(gate, host=HOST, port=PORT, threads=8, max_request_body_size=4 * 1024 ** 3, ident=None)
     return 0
 
 
