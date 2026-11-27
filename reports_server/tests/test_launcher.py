@@ -289,3 +289,10 @@ def test_already_running_detects_listener(monkeypatch):
     assert R.already_running()
     srv.close()
     assert not R.already_running()
+
+
+def test_extract_never_overwrites_data(env):
+    (R.PROGRAM / R.DB_REL).parent.mkdir(parents=True)
+    (R.PROGRAM / R.DB_REL).write_bytes(b"real data")
+    R.extract_program([("app.py", b"x"), ("instance/security_reports.db", b"seed")], "h")
+    assert (R.PROGRAM / R.DB_REL).read_bytes() == b"real data"

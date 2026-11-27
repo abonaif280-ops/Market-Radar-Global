@@ -167,6 +167,9 @@ def apply_update(password: str, zip_stream) -> tuple[int, int]:
 def extract_program(files: list[tuple[str, bytes]], bundle_hash: str) -> None:
     """يكتب ملفات البرنامج فوق القديمة دون حذف instance أو uploads (البيانات تبقى عند التحديث)."""
     for name, data in files:
+        # حماية البيانات: لا يُكتب فوق قاعدة البيانات أو المرفقات أبدًا، حتى لو وُجدت في ملف البرنامج
+        if (name.startswith(("instance/", "static/uploads/", "exports/")) and (PROGRAM / name).exists()):
+            continue
         t = safe_path(PROGRAM, name)
         t.parent.mkdir(parents=True, exist_ok=True)
         t.write_bytes(data)
