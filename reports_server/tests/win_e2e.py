@@ -30,7 +30,7 @@ DB = os.path.join("instance", "security_reports.db")
 _c = None
 def init_db():
     global _c
-    _c = sqlite3.connect(DB, check_same_thread=False)  # يبقى مفتوحًا طوال التشغيل
+    _c = sqlite3.connect(DB, check_same_thread=False)  # kept open for the whole run
     _c.execute("create table if not exists r(t text)"); _c.commit()
 @app.get("/")
 def home():
