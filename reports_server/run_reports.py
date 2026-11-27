@@ -123,6 +123,10 @@ def apply_update(password: str, zip_stream) -> tuple[int, int]:
         z = zipfile.ZipFile(io.BytesIO(zip_stream.read()))
     except zipfile.BadZipFile as e:
         raise ValueError("ملف التحديث ليس ملفًا مضغوطًا (zip) صالحًا") from e
+    names = [i.filename.replace("\\", "/") for i in z.infolist()]
+    if any(n.endswith("run_reports.py") or n.startswith("python/") for n in names):
+        raise ValueError("هذا ملف نسخة السيرفر نفسها وليس ملف التحديث. اختر ملف التحديث الصغير "
+                         "(مثل reports_update_parties_map.zip) الذي وصلك في المحادثة.")
     incoming: dict[str, bytes] = {}
     total = 0
     for info in z.infolist():

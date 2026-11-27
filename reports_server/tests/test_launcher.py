@@ -274,3 +274,9 @@ def test_update_program_reencrypts_with_same_password(env, monkeypatch):
     assert c2.get("/").get_data(as_text=True).startswith("v2 rows=1")
     dl = c2.get("/__bundle", environ_base=local)
     assert dl.status_code == 200 and dl.data == new
+
+
+def test_update_rejects_server_package_with_clear_message(env):
+    R.BUNDLE.write_bytes(make_bundle())
+    with pytest.raises(ValueError, match="نسخة السيرفر"):
+        R.apply_update(PW, io.BytesIO(make_update([("python/_asyncio.pyd", b"x"), ("run_reports.py", b"")])))
