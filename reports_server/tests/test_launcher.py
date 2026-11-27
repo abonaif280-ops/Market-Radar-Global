@@ -280,3 +280,12 @@ def test_update_rejects_server_package_with_clear_message(env):
     R.BUNDLE.write_bytes(make_bundle())
     with pytest.raises(ValueError, match="نسخة السيرفر"):
         R.apply_update(PW, io.BytesIO(make_update([("python/_asyncio.pyd", b"x"), ("run_reports.py", b"")])))
+
+
+def test_already_running_detects_listener(monkeypatch):
+    import socket
+    srv = socket.socket(); srv.bind(("127.0.0.1", 0)); srv.listen(1)
+    monkeypatch.setattr(R, "PORT", srv.getsockname()[1])
+    assert R.already_running()
+    srv.close()
+    assert not R.already_running()

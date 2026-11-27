@@ -512,6 +512,15 @@ def backup_data(quiet: bool = False):
     return 0
 
 
+def already_running() -> bool:
+    """هل توجد نسخة أخرى تستمع على المنفذ؟ (اتصال محلي فقط، لا يرسل أي بيانات)"""
+    try:
+        with socket.create_connection(("127.0.0.1", PORT), timeout=1.5):
+            return True
+    except OSError:
+        return False
+
+
 def main() -> int:
     for s in (sys.stdout, sys.stderr):
         try:
@@ -522,6 +531,13 @@ def main() -> int:
         return backup_data()
     if not BUNDLE.exists() and not (PROGRAM / "app.py").exists():
         print("bundle.enc is missing next to run_reports.py")
+        return 1
+    if already_running():
+        # على Windows يسمح الخادم بتشغيل نسختين على نفس المنفذ فتتوزع الطلبات بينهما (نسخة قديمة وجديدة)
+        print("=" * 60)
+        print(f"  The program is ALREADY RUNNING on port {PORT} (another black window).")
+        print("  Close all other black windows of this program, then start it again.")
+        print("=" * 60)
         return 1
     gate = Gate(None if needs_unlock() else load_program())
     url = f"http://127.0.0.1:{PORT}"
