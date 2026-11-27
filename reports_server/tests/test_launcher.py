@@ -222,3 +222,55 @@ def test_import_page_needs_unlock_first(env):
     cl = Client(R.Gate())
     r = cl.get("/__import", environ_base={"REMOTE_ADDR": "127.0.0.1"})
     assert r.status_code == 302
+
+
+def make_update(entries):
+    import zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        for n, d in entries:
+            z.writestr(n, d)
+    return buf.getvalue()
+
+
+def test_update_program_reencrypts_with_same_password(env, monkeypatch):
+    monkeypatch.setattr(R, "BASE", env)
+    old = make_bundle()
+    R.BUNDLE.write_bytes(old)
+    restarts = []
+    gate = R.Gate(restart=lambda: restarts.append(1))
+    cl = Client(gate)
+    local = {"REMOTE_ADDR": "127.0.0.1"}
+    cl.post("/__unlock", data={"t": token(cl), "password": PW}, environ_base=local)
+    cl.post("/add", data={"t": "x"})
+    db_before = (R.PROGRAM / R.DB_REL).read_bytes()
+    new_app = FAKE_APP.replace(b'return f"rows={n}', b'return f"v2 rows={n}')
+    upd = make_update([("app.py", new_app), ("templates/map.html", "خريطة".encode()), ("static/map/sa.json", b"{}")])
+
+    assert cl.get("/__update", environ_base={"REMOTE_ADDR": "10.0.0.5"}).status_code == 403
+    assert cl.get("/__bundle", environ_base={"REMOTE_ADDR": "10.0.0.5"}).status_code == 403
+    page = cl.get("/__update", environ_base=local).get_data(as_text=True)
+    tok = page.split('name="t" value="')[1].split('"')[0]
+    r = cl.post("/__update", environ_base=local, data={"t": tok, "password": "غلط", "update": (io.BytesIO(upd), "u.zip")})
+    assert "كلمة السر غير صحيحة" in r.get_data(as_text=True) and R.BUNDLE.read_bytes() == old
+    bad = make_update([("app.py", b"x"), ("instance/security_reports.db", b"evil")])
+    r = cl.post("/__update", environ_base=local, data={"t": tok, "password": PW, "update": (io.BytesIO(bad), "u.zip")})
+    assert "غير مسموح" in r.get_data(as_text=True) and R.BUNDLE.read_bytes() == old
+    r = cl.post("/__update", environ_base=local, data={"t": tok, "password": PW, "update": (io.BytesIO(upd), "u.zip")})
+    body = r.get_data(as_text=True)
+    assert "تم التحديث" in body and "(1 ملف معدَّل، 2 ملف جديد)" in body and restarts == [1], body
+    new = R.BUNDLE.read_bytes()
+    assert new != old and new[4:20] == old[4:20]  # نفس الملح ← نفس كلمة السر وتوافق النسخ الاحتياطية
+    files = dict(R.decrypt_bundle(PW, new))
+    assert files["app.py"] == new_app and files["templates/t.html"] == "قالب".encode()  # الملفات غير المحدَّثة باقية
+    assert (R.PROGRAM / "templates" / "map.html").read_text(encoding="utf-8") == "خريطة"
+    assert (R.PROGRAM / R.DB_REL).read_bytes() == db_before  # البيانات لم تُلمس
+    assert list((env / "bundle_backups").glob("*.enc"))[0].read_bytes() == old
+    assert list((env / "backups").glob("*.zip"))
+    assert not R.needs_unlock()
+    # بعد إعادة التشغيل يعمل البرنامج الجديد على نفس البيانات
+    sys.modules.pop("app", None)
+    c2 = Client(R.Gate(R.load_program()))
+    assert c2.get("/").get_data(as_text=True).startswith("v2 rows=1")
+    dl = c2.get("/__bundle", environ_base=local)
+    assert dl.status_code == 200 and dl.data == new

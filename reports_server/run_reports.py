@@ -80,6 +80,86 @@ def decrypt_bundle(password: str, bundle: bytes) -> list[tuple[str, bytes]]:
     return unpack(plain)
 
 
+def pack(files: list[tuple[str, bytes]]) -> bytes:
+    out = bytearray()
+    for name, data in files:
+        nb = name.encode("utf-8")
+        out += struct.pack("<I", len(nb)) + nb + struct.pack("<I", len(data)) + data
+    return bytes(out)
+
+
+def encrypt_bundle(password: str, salt: bytes, files: list[tuple[str, bytes]]) -> bytes:
+    """نفس صيغة bundle.enc ونفس الملح (salt) القديم، فتبقى كلمة السر نفسها، ولا يُطلب من الجوال
+    إعادة إدخالها، وتبقى النسخ الاحتياطية القديمة متوافقة. المتجه iv جديد عشوائي في كل مرة."""
+    from Crypto.Cipher import AES
+
+    iv = secrets.token_bytes(12)
+    c = AES.new(derive(password, salt), AES.MODE_GCM, nonce=iv)
+    ct, tag = c.encrypt_and_digest(pack(files))
+    return b"SRB1" + salt + iv + ct + tag
+
+
+UPDATE_MAX = 50 * 1024 * 1024
+
+
+def update_allowed(name: str) -> bool:
+    """ملفات البرنامج فقط: app.py والقوالب والملفات الثابتة — وليس البيانات أو المرفقات."""
+    if name == "app.py":
+        return True
+    if name.startswith("templates/"):
+        return True
+    return name.startswith("static/") and not name.startswith("static/uploads/")
+
+
+def apply_update(password: str, zip_stream) -> tuple[int, int]:
+    """يدمج ملفات التحديث في البرنامج المشفر: يُفك bundle.enc بكلمة السر، تُستبدل/تُضاف الملفات،
+    ثم يُعاد التشفير بنفس كلمة السر. يرجع (عدد الملفات المحدَّثة، عدد الملفات الجديدة)."""
+    import datetime
+    import zipfile
+
+    raw = BUNDLE.read_bytes()
+    files = decrypt_bundle(password, raw)  # يرفع WrongPassword إن كانت كلمة السر خاطئة
+    try:
+        z = zipfile.ZipFile(io.BytesIO(zip_stream.read()))
+    except zipfile.BadZipFile as e:
+        raise ValueError("ملف التحديث ليس ملفًا مضغوطًا (zip) صالحًا") from e
+    incoming: dict[str, bytes] = {}
+    total = 0
+    for info in z.infolist():
+        if info.is_dir():
+            continue
+        name = info.filename.replace("\\", "/").lstrip("/")
+        if ".." in name.split("/") or not update_allowed(name):
+            raise ValueError(f"ملف غير مسموح في التحديث: {name}")
+        total += info.file_size
+        if total > UPDATE_MAX:
+            raise ValueError("ملف التحديث أكبر من المسموح")
+        incoming[name] = z.read(info)
+    if "app.py" not in incoming and not any(n.startswith("templates/") for n in incoming):
+        raise ValueError("ملف التحديث لا يحتوي على ملفات البرنامج")
+    index = {name: i for i, (name, _) in enumerate(files)}
+    changed = added = 0
+    for name, data in incoming.items():
+        if name in index:
+            if files[index[name]][1] != data:
+                files[index[name]] = (name, data)
+                changed += 1
+        else:
+            files.append((name, data))
+            added += 1
+    new = encrypt_bundle(password, raw[4:20], files)
+    if decrypt_bundle(password, new) != files:  # تحقق قبل الاستبدال
+        raise ValueError("تعذّر التحقق من الملف المشفر الجديد")
+    keep = BASE / "bundle_backups"
+    keep.mkdir(exist_ok=True)
+    (keep / f"bundle_{datetime.datetime.now():%Y-%m-%d_%H%M%S}.enc").write_bytes(raw)
+    tmp = BUNDLE.with_suffix(".enc.new")
+    tmp.write_bytes(new)
+    os.replace(tmp, BUNDLE)
+    extract_program(files, hashlib.sha256(new).hexdigest())
+    return changed, added
+
+
 def extract_program(files: list[tuple[str, bytes]], bundle_hash: str) -> None:
     """يكتب ملفات البرنامج فوق القديمة دون حذف instance أو uploads (البيانات تبقى عند التحديث)."""
     for name, data in files:
@@ -202,6 +282,20 @@ IMPORT_DONE = """<meta http-equiv="refresh" content="8;url=/"><p><b>تم الا�
 <p>البرنامج يعيد التشغيل الآن، وستفتح الصفحة الرئيسية خلال ثوانٍ.</p>
 <p class="m">نسخة البيانات السابقة: {bk}<br>إن لم يرجع البرنامج: شغّل start_reports.cmd مرة أخرى.</p>"""
 
+UPDATE_PAGE = """<p><b>تحديث البرنامج</b> بملف التحديث (zip) الذي يصلك.</p>
+{err}<form method="post" action="/__update" enctype="multipart/form-data">
+<input type="hidden" name="t" value="{tok}">
+<input type="file" name="update" accept=".zip,application/zip" required>
+<input type="password" name="password" placeholder="كلمة سر التطبيق" required>
+<button type="submit">تحديث</button></form>
+<p class="m">يُحدَّث البرنامج على السيرفر ويُعاد تشفيره بنفس كلمة السر. بياناتك لا تتغير،
+وتُحفظ منها نسخة تلقائيًا في مجلد backups قبل التحديث، ونسخة من البرنامج السابق في bundle_backups.</p>"""
+
+UPDATE_DONE = """<p><b>تم التحديث</b> ({changed} ملف معدَّل، {added} ملف جديد).</p>
+<p>البرنامج يعيد التشغيل الآن.</p>
+<p><a href="/__bundle">⬇ تنزيل ملف البرنامج الجديد bundle.enc</a> — لتحديث نسخة الجوال على GitHub.</p>
+<p><a href="/">فتح البرنامج</a></p>"""
+
 RESTARTING = """<meta http-equiv="refresh" content="4"><p>البرنامج يعيد التشغيل… لحظات.</p>"""
 
 WAIT = """<p>البرنامج لم يُفتح بعد.</p><p class="m">افتح هذه الصفحة على جهاز السيرفر نفسه
@@ -227,6 +321,22 @@ class Gate:
         path = environ.get("PATH_INFO", "")
         if self.restarting:
             return self._page(RESTARTING, 503)(environ, start_response)
+        if path in ("/__update", "/__bundle"):
+            if not is_loopback(environ):
+                return self._page("<p>هذه الصفحة متاحة من جهاز السيرفر نفسه فقط.</p>", 403)(environ, start_response)
+            if path == "/__bundle":
+                from werkzeug.wrappers import Response
+
+                return Response(BUNDLE.read_bytes(), content_type="application/octet-stream",
+                                headers={"Content-Disposition": "attachment; filename=bundle.enc",
+                                         "Cache-Control": "no-store"})(environ, start_response)
+            from werkzeug.wrappers import Request
+
+            req = Request(environ)
+            req.max_form_memory_size = 1024 * 1024
+            if req.method == "POST":
+                return self._update(req)(environ, start_response)
+            return self._update_form()(environ, start_response)
         if path == "/__import":
             if not is_loopback(environ):
                 return self._page("<p>الاستيراد متاح من جهاز السيرفر نفسه فقط.</p>", 403)(environ, start_response)
@@ -285,6 +395,33 @@ class Gate:
         print("Backup imported. Restarting...")
         self.restart()
         return self._page(IMPORT_DONE.format(n=n, bk=html.escape(bk.name if bk else "—")))
+
+    def _update_form(self, err: str = ""):
+        return self._page(UPDATE_PAGE.format(err=f'<p class="e">{html.escape(err)}</p>' if err else "", tok=self.token))
+
+    def _update(self, req):
+        if not hmac.compare_digest(req.form.get("t", ""), self.token):
+            return self._update_form("انتهت صلاحية الصفحة، أعد المحاولة.")
+        up = req.files.get("update")
+        if not (up and up.filename):
+            return self._update_form("اختر ملف التحديث.")
+        with self.lock:
+            try:
+                if (PROGRAM / DB_REL).exists():
+                    backup_data(quiet=True)
+                changed, added = apply_update(req.form.get("password", ""), up.stream)
+            except WrongPassword:
+                return self._update_form("كلمة السر غير صحيحة")
+            except ValueError as e:
+                return self._update_form(str(e))
+            except Exception as e:  # noqa: BLE001
+                return self._update_form(f"تعذّر التحديث: {e}")
+            # البرنامج المفكوك سابقًا قد لا يكون محمَّلًا (أول تشغيل)؛ إعادة التشغيل تحمّل الجديد
+            self.restarting = self.app is not None
+        print("Program updated.")
+        if self.restarting:
+            self.restart()
+        return self._page(UPDATE_DONE.format(changed=changed, added=added))
 
     def _unlock(self, req):
         from werkzeug.utils import redirect
@@ -397,6 +534,7 @@ def main() -> int:
         print("  First time: the browser opens a page asking for the app password.")
     else:
         print(f"  Import a backup (.srbk): run import_backup.cmd or open {url}/__import")
+        print(f"  Update the program (.zip): run update_program.cmd or open {url}/__update")
     print("  Keep this window open. To stop: close it or press Ctrl+C.")
     print("=" * 60)
     if os.environ.get("REPORTS_NO_BROWSER") != "1":
