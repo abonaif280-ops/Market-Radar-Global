@@ -59,6 +59,17 @@ jobs:
           Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
           if (-not $ok) { throw "unlock page did not answer" }
           if (Test-Path "$b\program") { throw "program folder must not exist before unlock" }
+      - name: Windows end-to-end (unlock, import backup while running, auto restart)
+        shell: pwsh
+        run: |
+          $b = "dist\reports-server-windows"
+          Copy-Item -Recurse $b "$env:RUNNER_TEMP\e2e"
+          & "$b\python\python.exe" tests\win_e2e.py "$env:RUNNER_TEMP\e2e"
+          if ($LASTEXITCODE -ne 0) { throw "windows e2e failed" }
+      - name: Zip
+        shell: pwsh
+        run: |
+          $b = "dist\reports-server-windows"
           Compress-Archive -Path "$b\*" -DestinationPath "$b.zip" -Force
       - uses: actions/upload-artifact@v4
         with:

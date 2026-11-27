@@ -91,42 +91,74 @@ def extract_program(files: list[tuple[str, bytes]], bundle_hash: str) -> None:
     STAMP.write_text(bundle_hash, encoding="ascii")
 
 
-def import_backup(password: str, stream) -> int:
-    """يستورد ملف .srbk (من زر «حفظ نسخة احتياطية مشفرة» في الجوال)."""
+PENDING_REL = Path("instance") / "security_reports.db.pending"
+
+
+def apply_pending_db() -> bool:
+    """قاعدة بيانات مستوردة تنتظر التطبيق: تُوضع مكان القديمة قبل أن يفتحها البرنامج."""
+    pending = PROGRAM / PENDING_REL
+    if not pending.exists():
+        return False
+    db = PROGRAM / DB_REL
+    for extra in ("-wal", "-shm", "-journal"):  # بقايا القاعدة القديمة لا تُطبَّق على الجديدة
+        Path(str(db) + extra).unlink(missing_ok=True)
+    os.replace(pending, db)
+    return True
+
+
+def import_backup(password: str, stream, later: bool = False) -> int:
+    """يستورد ملف .srbk (زر «حفظ نسخة احتياطية مشفرة» في التطبيق) كما يفعل التطبيق نفسه:
+    تُستبدل قاعدة البيانات وتُضاف المرفقات (الصور والتوقيعات والمقاطع).
+    يُفك كل شيء أولًا في مجلد مؤقت، ولا يُلمس شيء من البيانات الحالية إلا بعد نجاح الفك كاملًا."""
+    import shutil
+
     head = stream.read(20)
     if head[:4] != b"SRBK":
         raise ValueError("الملف ليس نسخة احتياطية لهذا التطبيق")
     key = derive(password, head[4:20])
-    db, files, n = None, [], 0
-    while True:
-        h = stream.read(4)
-        if not h:
-            break
-        (nl,) = struct.unpack("<I", h)
-        name = stream.read(nl).decode("utf-8")
-        iv = stream.read(12)
-        (cl,) = struct.unpack("<I", stream.read(4))
-        try:
-            data = gcm_decrypt(key, iv, stream.read(cl))
-        except ValueError as e:
-            raise WrongPassword("كلمة السر لا تطابق هذه النسخة الاحتياطية") from e
-        if name == "db":
-            db = data
-        elif name.startswith("file:"):
-            files.append((name[5:], data))
-        n += 1
-    # الكتابة بعد التحقق من كل السجلات، حتى لا تُكتب نسخة ناقصة
-    upl = PROGRAM / UPL_REL
-    upl.mkdir(parents=True, exist_ok=True)
-    for fname, data in files:
-        safe_path(upl, fname).write_bytes(data)
-    if db is not None:
+    stage = PROGRAM / ".import_tmp"
+    shutil.rmtree(stage, ignore_errors=True)
+    (stage / "files").mkdir(parents=True)
+    try:
+        db, names, n = None, [], 0
+        while True:
+            h = stream.read(4)
+            if not h:
+                break
+            (nl,) = struct.unpack("<I", h)
+            name = stream.read(nl).decode("utf-8")
+            iv = stream.read(12)
+            (cl,) = struct.unpack("<I", stream.read(4))
+            try:
+                data = gcm_decrypt(key, iv, stream.read(cl))
+            except ValueError as e:
+                raise WrongPassword("كلمة السر لا تطابق هذه النسخة الاحتياطية") from e
+            if name == "db":
+                db = stage / "db"
+                db.write_bytes(data)
+            elif name.startswith("file:"):
+                safe_path(stage / "files", name[5:]).write_bytes(data)
+                names.append(name[5:])
+            n += 1
+        if db is None:
+            raise ValueError("الملف لا يحتوي على قاعدة بيانات")
+        upl = PROGRAM / UPL_REL
+        upl.mkdir(parents=True, exist_ok=True)
+        for fname in names:
+            os.replace(stage / "files" / fname, safe_path(upl, fname))
         (PROGRAM / DB_REL).parent.mkdir(parents=True, exist_ok=True)
-        (PROGRAM / DB_REL).write_bytes(db)
-    return n
+        # later=True والبرنامج يعمل: Windows لا يسمح باستبدال ملف قاعدة مفتوح، فتُطبَّق عند إعادة التشغيل
+        os.replace(db, PROGRAM / (PENDING_REL if later else DB_REL))
+        if not later:
+            apply_pending_db()  # لا شيء معلّق؛ للاحتياط فقط
+        return n
+    finally:
+        shutil.rmtree(stage, ignore_errors=True)
 
 
 def load_program():
+    if apply_pending_db():
+        print("Imported backup applied.")
     os.chdir(PROGRAM)
     sys.path.insert(0, str(PROGRAM))
     import app as A  # noqa: PLC0415 — app.py داخل البرنامج المفكوك
@@ -156,6 +188,22 @@ IMPORT = """<p class="m">اختياري — لنقل بياناتك من الج�
 بدونه يبدأ البرنامج بدون بيانات (المستخدم aaa وكلمة المرور 1234 ثم غيّرها فورًا).</p>
 <input type="file" name="backup" accept=".srbk,.zip,application/octet-stream">"""
 
+IMPORT_PAGE = """<p><b>استيراد نسخة احتياطية</b> (ملف .srbk من زر ☰ ← «حفظ نسخة احتياطية مشفرة» في الجوال أو الجهاز الآخر).</p>
+<p>تنقل الحالات كاملة: البيانات والصور والتوقيعات والتواريخ والتقارير.</p>
+{err}<form method="post" action="/__import" enctype="multipart/form-data">
+<input type="hidden" name="t" value="{tok}">
+<input type="file" name="backup" accept=".srbk,.zip,application/octet-stream" required>
+<input type="password" name="password" placeholder="كلمة سر النسخة (عادةً نفس كلمة سر التطبيق)" required>
+<label><input type="checkbox" name="ok" value="1" required style="width:auto"> أفهم أن بيانات السيرفر الحالية ستُستبدل ببيانات هذه النسخة</label>
+<button type="submit">استيراد</button></form>
+<p class="m">قبل الاستبدال تُحفظ نسخة من بيانات السيرفر الحالية تلقائيًا في مجلد backups.</p>"""
+
+IMPORT_DONE = """<meta http-equiv="refresh" content="8;url=/"><p><b>تم الاستيراد ({n} عنصر).</b></p>
+<p>البرنامج يعيد التشغيل الآن، وستفتح الصفحة الرئيسية خلال ثوانٍ.</p>
+<p class="m">نسخة البيانات السابقة: {bk}<br>إن لم يرجع البرنامج: شغّل start_reports.cmd مرة أخرى.</p>"""
+
+RESTARTING = """<meta http-equiv="refresh" content="4"><p>البرنامج يعيد التشغيل… لحظات.</p>"""
+
 WAIT = """<p>البرنامج لم يُفتح بعد.</p><p class="m">افتح هذه الصفحة على جهاز السيرفر نفسه
 وأدخل كلمة سر التطبيق، ثم أعد تحميل الصفحة هنا.</p>"""
 
@@ -167,15 +215,34 @@ def is_loopback(environ) -> bool:
 class Gate:
     """قبل فك البرنامج: صفحة فك القفل. بعده: البرنامج نفسه لكل الطلبات."""
 
-    def __init__(self, app=None):
+    def __init__(self, app=None, restart=None):
         self.app = app
         self.token = secrets.token_urlsafe(24)
         self.lock = threading.Lock()
+        self.restarting = False
+        # بعد الاستيراد: الخروج بالرمز 3 فيعيد start_reports.cmd تشغيل البرنامج على البيانات الجديدة
+        self.restart = restart or (lambda: threading.Timer(1.5, os._exit, (3,)).start())
 
     def __call__(self, environ, start_response):
+        path = environ.get("PATH_INFO", "")
+        if self.restarting:
+            return self._page(RESTARTING, 503)(environ, start_response)
+        if path == "/__import":
+            if not is_loopback(environ):
+                return self._page("<p>الاستيراد متاح من جهاز السيرفر نفسه فقط.</p>", 403)(environ, start_response)
+            if self.app is None:
+                from werkzeug.utils import redirect
+                return redirect("/")(environ, start_response)
+            from werkzeug.wrappers import Request
+
+            req = Request(environ)
+            req.max_form_memory_size = 1024 * 1024
+            if req.method == "POST":
+                return self._import(req)(environ, start_response)
+            return self._import_form()(environ, start_response)
         if self.app is not None:
             return self.app(environ, start_response)
-        from werkzeug.wrappers import Request, Response
+        from werkzeug.wrappers import Request
 
         req = Request(environ)
         req.max_form_memory_size = 1024 * 1024
@@ -196,6 +263,28 @@ class Gate:
         has_db = (PROGRAM / DB_REL).exists()
         return self._page(FORM.format(err=f'<p class="e">{html.escape(err)}</p>' if err else "",
                                       tok=self.token, imp="" if has_db else IMPORT))
+
+    def _import_form(self, err: str = ""):
+        return self._page(IMPORT_PAGE.format(err=f'<p class="e">{html.escape(err)}</p>' if err else "", tok=self.token))
+
+    def _import(self, req):
+        if not hmac.compare_digest(req.form.get("t", ""), self.token):
+            return self._import_form("انتهت صلاحية الصفحة، أعد المحاولة.")
+        up = req.files.get("backup")
+        if not (up and up.filename) or req.form.get("ok") != "1":
+            return self._import_form("اختر ملف النسخة الاحتياطية ووافق على الاستبدال.")
+        with self.lock:
+            try:
+                bk = backup_data(quiet=True) if (PROGRAM / DB_REL).exists() else None
+                n = import_backup(req.form.get("password", ""), up.stream, later=True)
+            except (WrongPassword, ValueError) as e:
+                return self._import_form(str(e) or "كلمة السر غير صحيحة")
+            except Exception as e:  # noqa: BLE001
+                return self._import_form(f"تعذّر الاستيراد: {e}")
+            self.restarting = True
+        print("Backup imported. Restarting...")
+        self.restart()
+        return self._page(IMPORT_DONE.format(n=n, bk=html.escape(bk.name if bk else "—")))
 
     def _unlock(self, req):
         from werkzeug.utils import redirect
@@ -256,12 +345,14 @@ def lan_addresses() -> list[str]:
     return found
 
 
-def backup_data() -> int:
+def backup_data(quiet: bool = False):
     """نسخة من البيانات (قاعدة البيانات + المرفقات) في مجلد backups بالتاريخ والوقت."""
     import datetime
     import zipfile
 
     if not (PROGRAM / "instance").exists():
+        if quiet:
+            return None
         print("No data yet.")
         return 1
     out = BASE / "backups"
@@ -269,9 +360,13 @@ def backup_data() -> int:
     target = out / f"reports_{datetime.datetime.now():%Y-%m-%d_%H%M%S}.zip"
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as z:
         for sub in ("instance", UPL_REL.as_posix()):
+            if not (PROGRAM / sub).exists():
+                continue
             for f in (PROGRAM / sub).rglob("*"):
                 if f.is_file():
                     z.write(f, f.relative_to(PROGRAM).as_posix())
+    if quiet:
+        return target
     print(f"Saved: {target}")
     return 0
 
@@ -300,6 +395,8 @@ def main() -> int:
     if gate.app is None:
         print()
         print("  First time: the browser opens a page asking for the app password.")
+    else:
+        print(f"  Import a backup (.srbk): run import_backup.cmd or open {url}/__import")
     print("  Keep this window open. To stop: close it or press Ctrl+C.")
     print("=" * 60)
     if os.environ.get("REPORTS_NO_BROWSER") != "1":

@@ -154,3 +154,71 @@ def test_backup_data(env, monkeypatch):
     import zipfile
     z = next((env / "backups").glob("*.zip"))
     assert sorted(zipfile.ZipFile(z).namelist()) == ["instance/security_reports.db", "static/uploads/a.jpg"]
+
+
+def test_import_any_time_replaces_data_after_auto_backup(env, monkeypatch):
+    import sqlite3
+    import zipfile
+    monkeypatch.setattr(R, "BASE", env)
+    R.BUNDLE.write_bytes(make_bundle())
+    # السيرفر بدأ فارغًا وأُدخلت عليه بيانات
+    gate = R.Gate(restart=lambda: restarts.append(1))
+    restarts = []
+    cl = Client(gate)
+    local = {"REMOTE_ADDR": "127.0.0.1"}
+    cl.post("/__unlock", data={"t": token(cl), "password": PW}, environ_base=local)
+    assert gate.app is not None
+    cl.post("/add", data={"t": "بيانات السيرفر القديمة"})
+    old_db = (R.PROGRAM / R.DB_REL).read_bytes()
+
+    phone = env / "phone.db"
+    c = sqlite3.connect(phone); c.execute("create table r(t text)")
+    c.executemany("insert into r values (?)", [("حالة 1",), ("حالة 2",), ("حالة 3",)]); c.commit(); c.close()
+    srbk = make_backup(phone.read_bytes())
+
+    # من جهاز آخر: ممنوع
+    r = cl.post("/__import", environ_base={"REMOTE_ADDR": "192.168.1.20"})
+    assert r.status_code == 403
+    page = cl.get("/__import", environ_base=local).get_data(as_text=True)
+    tok = page.split('name="t" value="')[1].split('"')[0]
+    # كلمة سر خاطئة: لا يتغيّر شيء
+    r = cl.post("/__import", environ_base=local, data={
+        "t": tok, "password": "غلط", "ok": "1", "backup": (io.BytesIO(srbk), "b.srbk")})
+    assert "لا تطابق" in r.get_data(as_text=True) and not restarts
+    assert (R.PROGRAM / R.DB_REL).read_bytes() == old_db
+    # بدون الموافقة على الاستبدال: يُرفض
+    r = cl.post("/__import", environ_base=local, data={"t": tok, "password": PW, "backup": (io.BytesIO(srbk), "b.srbk")})
+    assert not restarts
+    # الاستيراد الصحيح
+    r = cl.post("/__import", environ_base=local, data={
+        "t": tok, "password": PW, "ok": "1", "backup": (io.BytesIO(srbk), "b.srbk")})
+    assert "تم الاستيراد (2 عنصر)" in r.get_data(as_text=True) and restarts == [1]
+    # نسخة تلقائية من البيانات القديمة قبل الاستبدال
+    bk = next((env / "backups").glob("*.zip"))
+    assert zipfile.ZipFile(bk).read("instance/security_reports.db") == old_db
+    # أثناء إعادة التشغيل لا يصل أحد للبرنامج (حتى لا يكتب فوق البيانات الجديدة)
+    assert cl.get("/", environ_base={"REMOTE_ADDR": "192.168.1.20"}).status_code == 503
+    assert (R.PROGRAM / R.PENDING_REL).exists()
+    assert (R.PROGRAM / R.UPL_REL / "p1.jpg").read_bytes() == b"\xff\xd8img"
+
+    # إعادة التشغيل: تُطبَّق القاعدة المستوردة قبل فتح البرنامج
+    sys.modules.pop("app", None)
+    gate2 = R.Gate(R.load_program())
+    body = Client(gate2).get("/", environ_base={"REMOTE_ADDR": "192.168.1.20"}).get_data(as_text=True)
+    assert body.startswith("rows=3 uploads=['p1.jpg']")
+    assert not (R.PROGRAM / R.PENDING_REL).exists()
+
+
+def test_backup_without_db_rejected(env):
+    salt = os.urandom(16); key = R.derive(PW, salt); iv = os.urandom(12)
+    n = b"file:a.jpg"; ct = enc(key, iv, b"x")
+    data = b"SRBK" + salt + struct.pack("<I", len(n)) + n + iv + struct.pack("<I", len(ct)) + ct
+    with pytest.raises(ValueError, match="قاعدة بيانات"):
+        R.import_backup(PW, io.BytesIO(data), later=True)
+    assert not (R.PROGRAM / R.UPL_REL / "a.jpg").exists()
+
+
+def test_import_page_needs_unlock_first(env):
+    cl = Client(R.Gate())
+    r = cl.get("/__import", environ_base={"REMOTE_ADDR": "127.0.0.1"})
+    assert r.status_code == 302
